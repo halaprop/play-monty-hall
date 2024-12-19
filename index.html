@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stick Figures with Animation</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.14/two.min.js"></script>
+</head>
+
+<body>
+  <div id="draw-area" style="width: 600px; height: 400px;"></div>
+  <script>
+    const elem = document.getElementById('draw-area');
+    const two = new Two({ width: 900, height: 700 }).appendTo(elem);
+
+    class StickFigure {
+      constructor() {
+        this.group = new Two.Group();
+
+        const headRadius = 20;
+        const bodyLength = 50;
+        const shoulderDrop = 20;
+        const shoulderY = headRadius + shoulderDrop;
+        const buttY = headRadius + bodyLength;
+        const armLength = 40;
+        const armAngle = 45 * (Math.PI / 180);
+        const armXOffset = armLength * Math.sin(armAngle);
+        const armYOffset = armLength * Math.cos(armAngle);
+        const legLength = 60;
+        const legAngle = 20 * (Math.PI / 180);
+        const legXOffset = legLength * Math.sin(legAngle);
+        const legYOffset = legLength * Math.cos(legAngle);
+
+        const head = new Two.Circle(0, 0, headRadius);
+        const body = new Two.Line(0, headRadius, 0, buttY);
+        const leftLeg = new Two.Line(0, buttY, -legXOffset, buttY + legYOffset);
+        const rightLeg = new Two.Line(0, buttY, legXOffset, buttY + legYOffset);
+        const leftArm = new Two.Line(0, shoulderY, -armXOffset, shoulderY + armYOffset);
+        // right arm is interchangable with pointing arm via opacity
+        this.rightArm = new Two.Line(0, shoulderY, armXOffset, shoulderY + armYOffset);
+
+        // pointing arm
+        const a = new Two.Anchor(0, shoulderY);
+        const b = new Two.Anchor(30, shoulderY);
+        const c = new Two.Anchor(30, shoulderY - 40);
+
+        this.pointingArm = new Two.Path([a, b, c]);
+        this.pointingArm.fill = 'none';
+        this.pointingArm.opacity = 0;
+
+        // talk bubble
+        const talkCenterX = 90;
+        const talkCenterY = -55;
+        const talkWidth = 100;
+        const talkHeight = 50;
+        const talkLeftX = talkCenterX - talkWidth / 2;
+        const talkBottomY = talkCenterY + talkHeight / 2;
+        const bubble = new Two.RoundedRectangle(talkCenterX, talkCenterY, talkWidth, talkHeight, 20);
+        const talkTail = new Two.Path(
+          [
+            new Two.Anchor(talkLeftX + 3, talkCenterY + 15),
+            new Two.Anchor(talkLeftX - 15, talkBottomY + 15),
+            new Two.Anchor(talkLeftX + 15, talkBottomY - 1),
+          ],
+          false // Closed path
+        );
+        this.talkText = new Two.Text('', talkCenterX, talkCenterY, {
+          size: 22,
+          alignment: 'center',
+          family: 'Arial'
+        });
+        this.talkBubble = new Two.Group(bubble, talkTail, this.talkText);
+        this.talkBubble.opacity = 0;
+
+        // group
+        this.group.add(this.pointingArm, head, body, leftArm, this.rightArm, leftLeg, rightLeg, this.talkBubble);
+      }
+
+      walkTo(targetX) {
+        this.isWalking = true;
+        this.targetX = targetX;
+      }
+
+      setPointing(isPointing) {
+        this.isPointing = isPointing;
+        this.pointingArm.opacity = isPointing ? 1 : 0;
+        this.rightArm.opacity = isPointing ? 0 : 1;
+      }
+
+      // shakeDirection is 'horz', 'vert', or null
+      setShaking(shakeDirection, shakeCount = 5) {
+        this.shakeDirection = shakeDirection;
+        this.shakeCount = shakeCount;
+      }
+
+      setTalk(visible, value) {
+        this.talkText.value = value;
+        this.talkBubble.opacity = visible ? 1 : 0;
+      }
+
+      equals(x, y, epsilon = 0.00001) {
+        return Math.abs(x - y) < epsilon;
+      }
+
+      tick(frameCount) {
+        if (this.isWalking) {
+          const x = this.group.translation.x;
+          if (this.equals(x, this.targetX)) {
+            this.group.translation.x = this.targetX;
+            this.isWalking = false;
+          } else {
+            const dX = Math.min(5, (this.targetX - x) / 2.0);
+            this.group.translation.x += dX;
+          }
+        } else if (this.shakeDirection) {
+          if (this.shakeCount == 0) {
+            this.shakeDirection = null;
+          } else {
+            if (frameCount % 11 == 0) {
+              const delta = this.shakeCount % 2 == 0 ? -8 : 8;
+              if (this.shakeDirection == 'horz') {
+                this.group.translation.x += delta;
+              } else {
+                this.group.translation.y += delta;
+              }
+              this.shakeCount--;
+            }
+          }
+        }
+      }
+    }
+
+    class MonteGame {
+      constructor() {
+        this.monty = new StickFigure();
+        this.monty.group.translation.set(50, 90);
+
+        this.player = new StickFigure();
+        this.player.group.translation.set(230, 170);
+        this.player.group.linewidth = 4;
+
+        const cardCenterY = 140;
+        const cardCentersX = MonteGame.cardCentersX();
+        this.doors = cardCentersX.map(x => {
+          const card = new Two.RoundedRectangle(x, cardCenterY, 70, 120, 10);
+          card.linewidth = 0;
+          return card;
+        });
+
+        this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group);
+        this.setupGame();
+      }
+
+      static cardCentersX() {
+        return [150, 230, 310];
+      }
+
+      setupGame() {
+        this.winDoor = Math.floor(Math.random() * 3);
+        this.doors.forEach((card, i) => {
+          card.fill = i == this.winDoor ? '#00F080' : '#DA2F2A';
+          card.stroke = i == this.winDoor ? '#00F080' : '#DA2F2A';
+        });
+      }
+
+      playGame() {
+        setTimeout(() => this.monty.setTalk(true, "Choose"), 1000);
+        setTimeout(() => {
+          this.playerChoice = Math.floor(Math.random() * 3);
+          const targetX = MonteGame.cardCentersX()[this.playerChoice] - 35;
+          this.player.walkTo(targetX);
+        }, 1200);
+        setTimeout(() => {
+          this.player.setPointing(true);
+        }, 1500);
+        setTimeout(() => {
+          this.monty.setTalk(true, 'Switch?');
+        }, 2500);
+        setTimeout(() => {
+          const revealable = [0,1,2].filter(i => i!=this.playerChoice && i!=this.winDoor);
+          this.revealIndex =  revealable[Math.floor(Math.random() * revealable.length)];
+          const revealDoor = this.doors[this.revealIndex];
+          revealDoor.fill = 'white';
+          revealDoor.linewidth = 3;
+        }, 3000);
+        setTimeout(() => {
+          const switcher = Math.floor(Math.random() * 2);
+          if (switcher) {
+            this.playerChoice = [0,1,2].filter(i => i!=this.playerChoice && i!=this.revealIndex)[0];
+            const targetX = MonteGame.cardCentersX()[this.playerChoice] - 35;
+            this.player.walkTo(targetX);
+          } else {
+            this.player.setShaking('horz');
+          }
+        }, 3500);
+        setTimeout(() => {
+          this.doors.forEach((door, i) => {
+            door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
+            door.opacity = (i == this.playerChoice) ? 1.0 : 0.75;
+            this.monty.setTalk(true, "Choose");
+          });
+          const win = this.playerChoice == this.winDoor;
+          this.monty.setTalk(true, win ? 'Win :-)' : 'Lose :-(');
+          if (win) {
+            this.player.setShaking('vert', 10);
+          } else {
+            this.player.setPointing(false);
+          }
+        }, 4500);        
+
+      }
+    }
+
+    const mg = new MonteGame()
+    const sceneGroup = new Two.Group();
+    sceneGroup.scale = 0.5;
+    sceneGroup.add(mg.group);
+    two.add(sceneGroup);
+
+    two.bind('update', update);
+    two.play();
+
+    mg.playGame();
+
+    function update(frameCount) {
+      mg.player.tick(frameCount);
+    }
+
+
+    // Create objects
+    // const stickFigure1 = new StickFigure();
+    // stickFigure1.group.translation.set(100, 200);
+
+    // const sceneGroup = new Two.Group();
+    // sceneGroup.add(stickFigure1.group, mg.group);
+    // two.add(sceneGroup);
+    // sceneGroup.scale = 1;
+
+    // two.bind('update', update);
+    // two.play();
+
+    // function update(frameCount) {
+    //   stickFigure1.tick(frameCount);
+    // }
+
+    // setTimeout(() => {
+    //   stickFigure1.setTalk(true, "bully!");
+    // }, 1000);
+
+    // setTimeout(() => {
+    //   stickFigure1.setTalk(false, "");
+    //   stickFigure1.walkTo(300);
+    //   stickFigure1.setPointing(true);
+    // }, 2000)
+
+    // setTimeout(() => {
+    //   stickFigure1.setShaking(5);
+    // }, 3000);
+  </script>
+</body>
+
+</html>

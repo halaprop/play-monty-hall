@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two.js Stick Figure</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.14/two.min.js"></script>
+</head>
+
+<body>
+  <div id="draw-area" style="width: 400px; height: 400px;"></div>
+  <script>
+
+    class StickFigure {
+      constructor(twoInstance, position = { x: 100, y: 100 }) {
+        this.two = twoInstance;
+
+        // Properties for waving animation
+        this.isWaving = false;
+        this.currentArmAngle = 45 * (Math.PI / 180); // Initial angle in radians
+        this.waveDirection = 1; // 1 for up, -1 for down
+        this.maxWaveAngle = 110 * (Math.PI / 180); // Max angle for waving
+        this.minWaveAngle = 20 * (Math.PI / 180); // Min angle for waving
+
+        const headRadius = 20;
+        const bodyLength = 50;
+        const shoulderDrop = 20;
+        const shoulderY = headRadius + shoulderDrop;
+        const buttY = headRadius + bodyLength;
+        const armLength = 40;
+
+        // Create stick figure parts
+        const head = new Two.Circle(0, 0, headRadius);
+        const body = new Two.Line(0, headRadius, 0, buttY);
+        const leftArm = new Two.Line(0, shoulderY, -armLength * Math.sin(this.currentArmAngle), shoulderY + armLength * Math.cos(this.currentArmAngle));
+        this.rightArm = new Two.Line(0, shoulderY, armLength * Math.sin(this.currentArmAngle), shoulderY + armLength * Math.cos(this.currentArmAngle));
+        const leftLeg = new Two.Line(0, buttY, -20, buttY + 60);
+        const rightLeg = new Two.Line(0, buttY, 20, buttY + 60);
+
+        // Group the parts
+        this.group = new Two.Group().add(head, body, leftArm, this.rightArm, leftLeg, rightLeg);
+        this.group.stroke = 'black';
+        this.group.linewidth = 3;
+
+        // Position the group
+        this.group.translation.set(position.x, position.y);
+
+        // Add the group to the Two.js instance
+        this.two.add(this.group);
+
+        // Bind the tick method to Two.js's update event
+        this.two.bind('update', () => this.tick());
+      }
+
+      tick() {
+        if (this.isWaving) {
+          const waveSpeed = 0.02; // Radians per update
+          this.currentArmAngle += this.waveDirection * waveSpeed;
+
+          // Reverse direction if limits are reached
+          if (this.currentArmAngle >= this.maxWaveAngle) {
+            this.waveDirection = -1;
+          } else if (this.currentArmAngle <= this.minWaveAngle) {
+            this.waveDirection = 1;
+          }
+
+          // Update arm position
+          const armLength = 40;
+          const shoulderY = 20 + 20; // Head radius + shoulder drop
+          this.rightArm.vertices[1].x = armLength * Math.sin(this.currentArmAngle);
+          this.rightArm.vertices[1].y = shoulderY + armLength * Math.cos(this.currentArmAngle);
+        }
+      }
+
+      startWaving() {
+        this.isWaving = true;
+      }
+
+      stopWaving() {
+        this.isWaving = false;
+      }
+    }
+
+    // Example usage
+    const elem = document.getElementById('draw-area');
+    const two = new Two({ width: 400, height: 400 }).appendTo(elem);
+    const stickFigure = new StickFigure(two, { x: 100, y: 100 });
+
+    stickFigure.startWaving();
+    two.play(); // Start Two.js's animation loop
+
+    // Setup Two.js
+    // const elem = document.getElementById('draw-area');
+    // const two = new Two({ width: 400, height: 400 }).appendTo(elem);
+
+    // const headRadius = 20;
+    // const bodyLength = 50;
+    // const shoulderDrop = 20;
+    // const shoulderY = headRadius + shoulderDrop;
+    // const buttY = headRadius + bodyLength;
+    // const armLength = 40;
+    // const armAngle = 45 * (Math.PI / 180);
+    // const armXOffset = armLength * Math.sin(armAngle);
+    // const armYOffset = armLength * Math.cos(armAngle);
+    // const legLength = 60;
+    // const legAngle = 20 * (Math.PI / 180);
+    // const legXOffset = legLength * Math.sin(legAngle);
+    // const legYOffset = legLength * Math.cos(legAngle);
+
+
+    // const head = new Two.Circle(0, 0, headRadius);
+    // const body = new Two.Line(0, headRadius, 0, buttY);
+    // const leftArm = new Two.Line(0, shoulderY, -armXOffset, shoulderY + armYOffset);
+    // const rightArm = new Two.Line(0, shoulderY, armXOffset, shoulderY + armYOffset);
+    // const leftLeg = new Two.Line(0, buttY, -legXOffset, buttY + legYOffset);
+    // const rightLeg = new Two.Line(0, buttY, legXOffset, buttY + legYOffset);
+
+    // const group = (new Two.Group()).add(head, body, leftArm, rightArm, leftLeg, rightLeg);
+    // group.stroke = 'black';
+    // group.linewidth = 3;
+
+    // group.translation.set(100, 100);
+    // two.add(group);
+
+
+    // Add styles
+    // [head, body, leftArm, rightArm, leftLeg, rightLeg].forEach(shape => {
+    //   shape.stroke = 'black';
+    //   shape.linewidth = 3;
+    // });
+
+    two.update();
+  </script>
+</body>
+
+</html>
