@@ -10,7 +10,7 @@
 
 <body>
   <div id="root_0" style="border: 1px solid black; width: 370px; height: 320px;"></div>
-  <div id="root_1" style="border: 1px solid black; width: 200px; height: 220px;"></div>
+  <div id="root_1" style="border: 1px solid black; width: 200px; height: 190px;"></div>
   <script defer>
 
     class StickFigure {
@@ -133,8 +133,9 @@
     class MonteGame {
       constructor(rootID) {
         const elem = document.getElementById(rootID);
-        this.two = new Two({ width: 370, height: 320 }).appendTo(elem);
-        
+        const { width, height } = elem.getBoundingClientRect();
+        this.two = new Two({ width, height }).appendTo(elem);
+
         this.setupScene();
         this.two.add(this.group);
         this.two.update();
@@ -161,8 +162,29 @@
           card.linewidth = 0;
           return card;
         });
-        this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group);
+        this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group); 
+        this.scaleToFixX();
         this.setupGame();
+      }
+
+      scaleToFixX() {
+        const bounds = this.group.getBoundingClientRect();
+        const viewportWidth = this.two.width;
+        const viewportHeight = this.two.height;
+
+        const margin = 0.05;
+        const availableWidth = viewportWidth * (1 - 2 * margin);
+
+        const scale = availableWidth / bounds.width;
+        this.group.scale = scale;
+
+        const scaledHeight = bounds.height * scale;
+        const centerY = (viewportHeight - scaledHeight) / 2;
+
+        this.group.translation.set(
+          viewportWidth * margin - bounds.left * scale,
+          centerY - bounds.top * scale
+        );
       }
 
       static extents() {
@@ -238,7 +260,6 @@
 
     const mg1 = new MonteGame('root_1');
     mg1.playGame();
-    mg1.group.scale = 0.5;
 
 
   </script>
