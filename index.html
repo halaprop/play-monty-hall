@@ -12,7 +12,7 @@
   <div id="draw-area" style="width: 600px; height: 400px;"></div>
   <script>
     const elem = document.getElementById('draw-area');
-    const two = new Two({ width: 900, height: 700 }).appendTo(elem);
+    const two = new Two({ width: 0, height: 0 }).appendTo(elem);
 
     class StickFigure {
       constructor() {
@@ -77,15 +77,15 @@
         this.group.add(this.pointingArm, head, body, leftArm, this.rightArm, leftLeg, rightLeg, this.talkBubble);
       }
 
-      walkTo(targetX) {
-        this.isWalking = true;
-        this.targetX = targetX;
-      }
-
       setPointing(isPointing) {
         this.isPointing = isPointing;
         this.pointingArm.opacity = isPointing ? 1 : 0;
         this.rightArm.opacity = isPointing ? 0 : 1;
+      }
+
+      setTalk(visible, value) {
+        this.talkText.value = value;
+        this.talkBubble.opacity = visible ? 1 : 0;
       }
 
       // shakeDirection is 'horz', 'vert', or null
@@ -94,9 +94,9 @@
         this.shakeCount = shakeCount;
       }
 
-      setTalk(visible, value) {
-        this.talkText.value = value;
-        this.talkBubble.opacity = visible ? 1 : 0;
+      walkTo(targetX) {
+        this.isWalking = true;
+        this.targetX = targetX;
       }
 
       equals(x, y, epsilon = 0.00001) {
@@ -147,13 +147,20 @@
           card.linewidth = 0;
           return card;
         });
-
         this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group);
         this.setupGame();
       }
 
+      static extents() {
+        return { width: 760, height: 620 };
+      }
+
       static cardCentersX() {
         return [150, 230, 310];
+      }
+
+      static targetCentersX() {
+        return this.cardCentersX().map(x => x-35);
       }
 
       setupGame() {
@@ -168,7 +175,7 @@
         setTimeout(() => this.monty.setTalk(true, "Choose"), 1000);
         setTimeout(() => {
           this.playerChoice = Math.floor(Math.random() * 3);
-          const targetX = MonteGame.cardCentersX()[this.playerChoice] - 35;
+          const targetX = MonteGame.targetCentersX()[this.playerChoice];
           this.player.walkTo(targetX);
         }, 1200);
         setTimeout(() => {
@@ -188,7 +195,7 @@
           const switcher = Math.floor(Math.random() * 2);
           if (switcher) {
             this.playerChoice = [0,1,2].filter(i => i!=this.playerChoice && i!=this.revealIndex)[0];
-            const targetX = MonteGame.cardCentersX()[this.playerChoice] - 35;
+            const targetX = MonteGame.targetCentersX()[this.playerChoice];
             this.player.walkTo(targetX);
           } else {
             this.player.setShaking('horz');
@@ -212,9 +219,16 @@
       }
     }
 
-    const mg = new MonteGame()
+    const mg = new MonteGame();
+
+    let { width, height } = MonteGame.extents();
+    two.width = width;
+    two.height = height;
+    two.renderer.setSize(width, height);
+    two.update();
+    
     const sceneGroup = new Two.Group();
-    sceneGroup.scale = 0.5;
+    //sceneGroup.scale = 0.5;
     sceneGroup.add(mg.group);
     two.add(sceneGroup);
 
@@ -228,35 +242,6 @@
     }
 
 
-    // Create objects
-    // const stickFigure1 = new StickFigure();
-    // stickFigure1.group.translation.set(100, 200);
-
-    // const sceneGroup = new Two.Group();
-    // sceneGroup.add(stickFigure1.group, mg.group);
-    // two.add(sceneGroup);
-    // sceneGroup.scale = 1;
-
-    // two.bind('update', update);
-    // two.play();
-
-    // function update(frameCount) {
-    //   stickFigure1.tick(frameCount);
-    // }
-
-    // setTimeout(() => {
-    //   stickFigure1.setTalk(true, "bully!");
-    // }, 1000);
-
-    // setTimeout(() => {
-    //   stickFigure1.setTalk(false, "");
-    //   stickFigure1.walkTo(300);
-    //   stickFigure1.setPointing(true);
-    // }, 2000)
-
-    // setTimeout(() => {
-    //   stickFigure1.setShaking(5);
-    // }, 3000);
   </script>
 </body>
 
