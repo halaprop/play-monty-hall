@@ -9,10 +9,9 @@
 </head>
 
 <body>
-  <div id="draw-area" style="width: 600px; height: 400px;"></div>
-  <script>
-    const elem = document.getElementById('draw-area');
-    const two = new Two({ width: 0, height: 0 }).appendTo(elem);
+  <div id="root_0" style="border: 1px solid black; width: 370px; height: 320px;"></div>
+  <div id="root_1" style="border: 1px solid black; width: 200px; height: 220px;"></div>
+  <script defer>
 
     class StickFigure {
       constructor() {
@@ -132,7 +131,22 @@
     }
 
     class MonteGame {
-      constructor() {
+      constructor(rootID) {
+        const elem = document.getElementById(rootID);
+        this.two = new Two({ width: 370, height: 320 }).appendTo(elem);
+        
+        this.setupScene();
+        this.two.add(this.group);
+        this.two.update();
+
+        this.two.bind('update', frameCount => {
+          this.player.tick(frameCount);
+        });
+
+        this.two.play();
+      }
+
+      setupScene() {
         this.monty = new StickFigure();
         this.monty.group.translation.set(50, 90);
 
@@ -160,7 +174,7 @@
       }
 
       static targetCentersX() {
-        return this.cardCentersX().map(x => x-35);
+        return this.cardCentersX().map(x => x - 35);
       }
 
       setupGame() {
@@ -185,8 +199,8 @@
           this.monty.setTalk(true, 'Switch?');
         }, 2500);
         setTimeout(() => {
-          const revealable = [0,1,2].filter(i => i!=this.playerChoice && i!=this.winDoor);
-          this.revealIndex =  revealable[Math.floor(Math.random() * revealable.length)];
+          const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
+          this.revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
           const revealDoor = this.doors[this.revealIndex];
           revealDoor.fill = 'white';
           revealDoor.linewidth = 3;
@@ -194,7 +208,7 @@
         setTimeout(() => {
           const switcher = Math.floor(Math.random() * 2);
           if (switcher) {
-            this.playerChoice = [0,1,2].filter(i => i!=this.playerChoice && i!=this.revealIndex)[0];
+            this.playerChoice = [0, 1, 2].filter(i => i != this.playerChoice && i != this.revealIndex)[0];
             const targetX = MonteGame.targetCentersX()[this.playerChoice];
             this.player.walkTo(targetX);
           } else {
@@ -214,32 +228,17 @@
           } else {
             this.player.setPointing(false);
           }
-        }, 4500);        
+        }, 4500);
 
       }
     }
 
-    const mg = new MonteGame();
-
-    let { width, height } = MonteGame.extents();
-    two.width = width;
-    two.height = height;
-    two.renderer.setSize(width, height);
-    two.update();
-    
-    const sceneGroup = new Two.Group();
-    //sceneGroup.scale = 0.5;
-    sceneGroup.add(mg.group);
-    two.add(sceneGroup);
-
-    two.bind('update', update);
-    two.play();
-
+    const mg = new MonteGame('root_0');
     mg.playGame();
 
-    function update(frameCount) {
-      mg.player.tick(frameCount);
-    }
+    const mg1 = new MonteGame('root_1');
+    mg1.playGame();
+    mg1.group.scale = 0.5;
 
 
   </script>
