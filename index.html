@@ -4,14 +4,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stick Figures with Animation</title>
+  <title>Monty Hall</title>
+  <!-- UIkit CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.21.16/dist/css/uikit.min.css" />
+
+  <!-- UIkit JS -->
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.21.16/dist/js/uikit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.21.16/dist/js/uikit-icons.min.js"></script>
+
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.14/two.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 </head>
 
 <body>
+  <nav class="uk-navbar-container" uk-navbar>
+    <div class="uk-navbar-left">
+      <ul class="uk-navbar-nav">
+        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
+        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
+        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="uk-container uk-margin-top">
+    <div class="uk-grid uk-child-width-1-3@m uk-grid-match" uk-grid>
+      <!-- Row 1 -->
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <div id="root_0" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <div id="root_1" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <div id="root_2" style="width: 100%;"></div>
+        </div>
+      </div>
+      <!-- Row 2 -->
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <h4>Never Switch <span id="lbl-0"></span></h4>
+          <div id="chart_0"></div>
+        </div>
+      </div>
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <h4>Always Switch <span id="lbl-1"></span></h4>
+          <div id="chart_1"></div>
+        </div>
+      </div>
+      <div>
+        <div class="uk-card uk-card-default uk-card-body">
+          <h4>Coin Flip <span id="lbl-2"></span></h4>
+          <div id="chart_2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <div id="root_0" style="width: 370px; height: 320px;"></div>
   <script defer>
+
+    /*********************************************************************************************************/
+    /*********************************************************************************************************/
 
     class StickFigure {
       constructor() {
@@ -108,10 +171,14 @@
       }
     }
 
+    /*********************************************************************************************************/
+    /*********************************************************************************************************/
+
     class MonteGame {
       constructor(rootID, colorDoors = true) {
         const elem = document.getElementById(rootID);
-        const { width, height } = elem.getBoundingClientRect();
+        const { width } = elem.getBoundingClientRect();
+        const height = width * 0.8;
         this.two = new Two({ width, height }).appendTo(elem);
         this.colorDoors = colorDoors;
         this.setupScene();
@@ -178,14 +245,15 @@
 
       setupGame() {
         this.winDoor = Math.floor(Math.random() * 3);
+        this.player.walk(0, 0)
         this.drawDoors();
       }
 
-      drawDoors(gameOver=false) {
+      drawDoors(gameOver = false) {
         this.doors.forEach((card, i) => {
           if (this.colorDoors || gameOver) {
-            card.fill = i == this.winDoor ? '#00F080' : '#DA2F2A';
-            card.stroke = i == this.winDoor ? '#00F080' : '#DA2F2A';
+            card.fill = i == this.winDoor ? '#487F1E' : '#DA2F2A';
+            card.stroke = i == this.winDoor ? '#487F1E' : '#DA2F2A';
           } else {
             card.fill = '#D8D8D8'
             card.linewidth = 2;
@@ -194,14 +262,16 @@
         });
       }
 
-      async playGame() {
+      async playGame(strategy, pauseLen = 1) {
         const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+
+        this.setupGame();
         this.monty.speak(true, "Choose");
         this.playerChoice = Math.floor(Math.random() * 3);
         const targetX = MonteGame.targetCentersX()[this.playerChoice];
         await this.player.walk(targetX, 0.3);
         this.player.point(true);
-        await pause(1);
+        await pause(pauseLen);
 
         this.monty.speak(true, "Switch?");
         const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
@@ -209,9 +279,12 @@
         const revealDoor = this.doors[this.revealIndex];
         revealDoor.fill = '#DA2F2A';
 
-        await pause(1);
-        const switcher = Math.floor(Math.random() * 2);
-        if (switcher) {
+        await pause(pauseLen);
+        let playerWillSwitch;
+        if (strategy == 'switcher') playerWillSwitch = true;
+        else if (strategy == 'sticker') playerWillSwitch = false;
+        else playerWillSwitch = Math.floor(Math.random() * 2);
+        if (playerWillSwitch) {
           this.playerChoice = [0, 1, 2].filter(i => i != this.playerChoice && i != this.revealIndex)[0];
           const targetX = MonteGame.targetCentersX()[this.playerChoice];
           this.player.walk(targetX, 0.3);
@@ -219,7 +292,7 @@
           this.player.shake(true, 6, 0.1);
         }
 
-        await pause(1);
+        await pause(pauseLen);
 
         this.doors.forEach((door, i) => {
           door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
@@ -233,11 +306,84 @@
         } else {
           this.player.point(false);
         }
+        await pause(pauseLen);
+        return win;
+      }
+
+      async playNGames(n, chart, strategy, pauseLen, labelEl) {
+        let wins = 0;
+        for (let i = 0; i < n; i++) {
+          const win = await this.playGame(strategy, pauseLen);
+          if (win) wins++;
+          const record = wins / (i + 1);
+          chart.setValue(record);
+          labelEl.innerText = `(${wins} / ${i+1})`;
+        }
       }
     }
 
-    const mg = new MonteGame('root_0', false);
-    mg.playGame();
+    /*********************************************************************************************************/
+    /*********************************************************************************************************/
+
+    class Chart {
+      constructor(rootID) {
+        this.rootID = rootID;
+        this.value = 0
+
+        this.data = [
+          {
+            type: "indicator",
+            value: this.value,
+            delta: { reference: 0 },
+            gauge: { axis: { visible: false, range: [0, 1.0] } },
+            domain: { x: [0, 1], y: [0, 1] } // Full plot area for a single gauge
+          },
+        ];
+
+        this.layout = {
+          width: 240, // Adjust the width
+          height: 190, // Adjust the height
+          margin: { t: 0, b: 60, l: 5, r: 5 },
+          template: {
+            data: {
+              indicator: [
+                {
+                  mode: "number+delta+gauge",
+                  delta: { reference: 90 }
+                }
+              ]
+            }
+          }
+        };
+        Plotly.newPlot(this.rootID, this.data, this.layout);
+      }
+
+      setValue(value) {
+        Plotly.restyle(this.rootID, {
+          value: [value],               // New value
+          'delta.reference': [this.value] // Use the current value as the new reference
+        }, 0);
+        this.value = value; // Update `this.value` after the restyle
+      }
+    }
+
+    const mg0 = new MonteGame('root_0', false);
+    const mg1 = new MonteGame('root_1', false);
+    const mg2 = new MonteGame('root_2', false);
+
+    const c0 = new Chart('chart_0');
+    const c1 = new Chart('chart_1');
+    const c2 = new Chart('chart_2');
+
+    const l0 = document.getElementById('lbl-0');
+    const l1 = document.getElementById('lbl-1');
+    const l2 = document.getElementById('lbl-2');
+
+    mg0.playNGames(1000, c0, 'sticker', 0.25, l0);
+    setTimeout(() => mg1.playNGames(1000, c1, 'switcher', 0.25, l1), 100);
+    setTimeout(() => mg2.playNGames(1000, c2, 'rando',    0.25, l2), 200);
+    
+    //mg2.playNGames(1000, c2, 'rando', 0.25, l2);
 
   </script>
 </body>
