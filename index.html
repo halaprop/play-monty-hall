@@ -10,8 +10,7 @@
 </head>
 
 <body>
-  <div id="root_0" style="border: 1px solid black; width: 370px; height: 320px;"></div>
-  <div id="root_1" style="border: 1px solid black; width: 200px; height: 190px;"></div>
+  <div id="root_0" style="width: 370px; height: 320px;"></div>
   <script defer>
 
     class StickFigure {
@@ -110,11 +109,11 @@
     }
 
     class MonteGame {
-      constructor(rootID) {
+      constructor(rootID, colorDoors = true) {
         const elem = document.getElementById(rootID);
         const { width, height } = elem.getBoundingClientRect();
         this.two = new Two({ width, height }).appendTo(elem);
-
+        this.colorDoors = colorDoors;
         this.setupScene();
         this.two.add(this.group);
         this.two.update();
@@ -130,7 +129,7 @@
         this.monty.group.translation.set(50, 90);
 
         this.player = new StickFigure();
-        this.player.group.translation.set(230, 170);
+        this.player.group.translation.set(230, 140);
         this.player.group.linewidth = 4;
 
         const cardCenterY = 140;
@@ -174,14 +173,24 @@
       }
 
       static targetCentersX() {
-        return this.cardCentersX().map(x => x - 35);
+        return this.cardCentersX().map(x => x - 10);
       }
 
       setupGame() {
         this.winDoor = Math.floor(Math.random() * 3);
+        this.drawDoors();
+      }
+
+      drawDoors(gameOver=false) {
         this.doors.forEach((card, i) => {
-          card.fill = i == this.winDoor ? '#00F080' : '#DA2F2A';
-          card.stroke = i == this.winDoor ? '#00F080' : '#DA2F2A';
+          if (this.colorDoors || gameOver) {
+            card.fill = i == this.winDoor ? '#00F080' : '#DA2F2A';
+            card.stroke = i == this.winDoor ? '#00F080' : '#DA2F2A';
+          } else {
+            card.fill = '#D8D8D8'
+            card.linewidth = 2;
+            card.stroke = '#0F0F0F';
+          }
         });
       }
 
@@ -198,8 +207,7 @@
         const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
         this.revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
         const revealDoor = this.doors[this.revealIndex];
-        revealDoor.fill = 'white';
-        revealDoor.linewidth = 3;
+        revealDoor.fill = '#DA2F2A';
 
         await pause(1);
         const switcher = Math.floor(Math.random() * 2);
@@ -217,6 +225,7 @@
           door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
           door.opacity = (i == this.playerChoice) ? 1.0 : 0.75;
         });
+        this.drawDoors(true);
         const win = this.playerChoice == this.winDoor;
         this.monty.speak(true, win ? 'Win :-)' : 'Lose :-(');
         if (win) {
@@ -227,12 +236,8 @@
       }
     }
 
-    const mg = new MonteGame('root_0');
+    const mg = new MonteGame('root_0', false);
     mg.playGame();
-
-    const mg1 = new MonteGame('root_1');
-    //mg1.playGame();
-
 
   </script>
 </body>
