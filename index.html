@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stick Figures with Animation</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.14/two.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 </head>
 
 <body>
@@ -76,57 +77,35 @@
         this.group.add(this.pointingArm, head, body, leftArm, this.rightArm, leftLeg, rightLeg, this.talkBubble);
       }
 
-      setPointing(isPointing) {
-        this.isPointing = isPointing;
+      speak(visible, text) {
+        this.talkText.value = text;
+        this.talkBubble.opacity = visible ? 1 : 0;
+      }
+
+      point(isPointing) {
         this.pointingArm.opacity = isPointing ? 1 : 0;
         this.rightArm.opacity = isPointing ? 0 : 1;
       }
 
-      setTalk(visible, value) {
-        this.talkText.value = value;
-        this.talkBubble.opacity = visible ? 1 : 0;
-      }
-
-      // shakeDirection is 'horz', 'vert', or null
-      setShaking(shakeDirection, shakeCount = 5) {
-        this.shakeDirection = shakeDirection;
-        this.shakeCount = shakeCount;
-      }
-
-      walkTo(targetX) {
-        this.isWalking = true;
-        this.targetX = targetX;
-      }
-
-      equals(x, y, epsilon = 0.00001) {
-        return Math.abs(x - y) < epsilon;
-      }
-
-      tick(frameCount) {
-        if (this.isWalking) {
-          const x = this.group.translation.x;
-          if (this.equals(x, this.targetX)) {
-            this.group.translation.x = this.targetX;
-            this.isWalking = false;
-          } else {
-            const dX = Math.min(5, (this.targetX - x) / 2.0);
-            this.group.translation.x += dX;
-          }
-        } else if (this.shakeDirection) {
-          if (this.shakeCount == 0) {
-            this.shakeDirection = null;
-          } else {
-            if (frameCount % 11 == 0) {
-              const delta = this.shakeCount % 2 == 0 ? -8 : 8;
-              if (this.shakeDirection == 'horz') {
-                this.group.translation.x += delta;
-              } else {
-                this.group.translation.y += delta;
-              }
-              this.shakeCount--;
-            }
-          }
+      async shake(isHorizontal, count, duration) {
+        const params = {
+          duration,
+          repeat: Math.max(1, count - 1),
+          yoyo: true,
+        };
+        if (isHorizontal) {
+          params.x = "+=8";
+        } else {
+          params.y = "+=8";
         }
+        gsap.to(this.group.translation, params);
+      }
+
+      async walk(targetX, duration) {
+        return gsap.to(this.group.translation, {
+          x: targetX,
+          duration: duration
+        })
       }
     }
 
@@ -140,11 +119,10 @@
         this.two.add(this.group);
         this.two.update();
 
-        this.two.bind('update', frameCount => {
-          this.player.tick(frameCount);
+        gsap.ticker.add(() => {
+          this.two.update();
         });
 
-        this.two.play();
       }
 
       setupScene() {
@@ -162,12 +140,12 @@
           card.linewidth = 0;
           return card;
         });
-        this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group); 
-        this.scaleToFixX();
+        this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group);
+        this.scaleScene();
         this.setupGame();
       }
 
-      scaleToFixX() {
+      scaleScene() {
         const bounds = this.group.getBoundingClientRect();
         const viewportWidth = this.two.width;
         const viewportHeight = this.two.height;
@@ -207,51 +185,45 @@
         });
       }
 
-      playGame() {
-        setTimeout(() => this.monty.setTalk(true, "Choose"), 1000);
-        setTimeout(() => {
-          this.playerChoice = Math.floor(Math.random() * 3);
-          const targetX = MonteGame.targetCentersX()[this.playerChoice];
-          this.player.walkTo(targetX);
-        }, 1200);
-        setTimeout(() => {
-          this.player.setPointing(true);
-        }, 1500);
-        setTimeout(() => {
-          this.monty.setTalk(true, 'Switch?');
-        }, 2500);
-        setTimeout(() => {
-          const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
-          this.revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
-          const revealDoor = this.doors[this.revealIndex];
-          revealDoor.fill = 'white';
-          revealDoor.linewidth = 3;
-        }, 3000);
-        setTimeout(() => {
-          const switcher = Math.floor(Math.random() * 2);
-          if (switcher) {
-            this.playerChoice = [0, 1, 2].filter(i => i != this.playerChoice && i != this.revealIndex)[0];
-            const targetX = MonteGame.targetCentersX()[this.playerChoice];
-            this.player.walkTo(targetX);
-          } else {
-            this.player.setShaking('horz');
-          }
-        }, 3500);
-        setTimeout(() => {
-          this.doors.forEach((door, i) => {
-            door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
-            door.opacity = (i == this.playerChoice) ? 1.0 : 0.75;
-            this.monty.setTalk(true, "Choose");
-          });
-          const win = this.playerChoice == this.winDoor;
-          this.monty.setTalk(true, win ? 'Win :-)' : 'Lose :-(');
-          if (win) {
-            this.player.setShaking('vert', 10);
-          } else {
-            this.player.setPointing(false);
-          }
-        }, 4500);
+      async playGame() {
+        const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+        this.monty.speak(true, "Choose");
+        this.playerChoice = Math.floor(Math.random() * 3);
+        const targetX = MonteGame.targetCentersX()[this.playerChoice];
+        await this.player.walk(targetX, 0.3);
+        this.player.point(true);
+        await pause(1);
 
+        this.monty.speak(true, "Switch?");
+        const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
+        this.revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
+        const revealDoor = this.doors[this.revealIndex];
+        revealDoor.fill = 'white';
+        revealDoor.linewidth = 3;
+
+        await pause(1);
+        const switcher = Math.floor(Math.random() * 2);
+        if (switcher) {
+          this.playerChoice = [0, 1, 2].filter(i => i != this.playerChoice && i != this.revealIndex)[0];
+          const targetX = MonteGame.targetCentersX()[this.playerChoice];
+          this.player.walk(targetX, 0.3);
+        } else {
+          this.player.shake(true, 6, 0.1);
+        }
+
+        await pause(1);
+
+        this.doors.forEach((door, i) => {
+          door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
+          door.opacity = (i == this.playerChoice) ? 1.0 : 0.75;
+        });
+        const win = this.playerChoice == this.winDoor;
+        this.monty.speak(true, win ? 'Win :-)' : 'Lose :-(');
+        if (win) {
+          this.player.shake(false, 10, 0.1);
+        } else {
+          this.player.point(false);
+        }
       }
     }
 
@@ -259,7 +231,7 @@
     mg.playGame();
 
     const mg1 = new MonteGame('root_1');
-    mg1.playGame();
+    //mg1.playGame();
 
 
   </script>
