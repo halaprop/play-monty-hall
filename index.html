@@ -19,43 +19,51 @@
 </head>
 
 <body>
-  <nav class="uk-navbar-container" uk-navbar>
+  <nav class="uk-navbar-container" uk-navbar="mode: click">
     <div class="uk-navbar-left">
       <ul class="uk-navbar-nav">
-        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
-        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
-        <li class="uk-active uk-margin-left"><a href="#">Item</a></li>
+        <li class="uk-active uk-margin-left"><a href="#">Manual</a></li>
+        <li class="uk-active uk-margin-left"><a href="#">Tournament</a></li>
+        <li class="uk-active">
+          <a href="#">Iterations</a>
+          <div class="uk-navbar-dropdown">
+            <ul class="uk-nav uk-navbar-dropdown-nav">
+              <li class="uk-active"><a href="#">10</a></li>
+              <li class="uk-active"><a href="#">100</a></li>
+              <li class="uk-active"><a href="#">1000</a></li>
+            </ul>
+          </div>
+        </li>
       </ul>
     </div>
   </nav>
 
   <div class="uk-container uk-margin-top">
     <div class="uk-grid uk-child-width-1-3@m uk-grid-match" uk-grid>
-      <!-- Row 1 -->
       <div>
         <div class="uk-card uk-card-default uk-card-body">
           <h4>Never Switch <span id="lbl-0"></span></h4>
-          <hr/>
+          <hr />
           <div id="root_0" style="width: 100%;"></div>
-          <hr/>
+          <hr />
           <div id="chart_0"></div>
         </div>
       </div>
       <div>
         <div class="uk-card uk-card-default uk-card-body">
           <h4>Always Switch <span id="lbl-1"></span></h4>
-          <hr/>
+          <hr />
           <div id="root_1" style="width: 100%;"></div>
-          <hr/>
+          <hr />
           <div id="chart_1"></div>
         </div>
       </div>
       <div>
         <div class="uk-card uk-card-default uk-card-body">
           <h4>Coin Flip <span id="lbl-2"></span></h4>
-          <hr/>
+          <hr />
           <div id="root_2" style="width: 100%;"></div>
-          <hr/>
+          <hr />
           <div id="chart_2"></div>
         </div>
       </div>
@@ -299,7 +307,7 @@
         } else {
           this.player.point(false);
         }
-        await pause(pauseLen);
+        await pause(pauseLen * 2);
         return win;
       }
 
@@ -310,7 +318,7 @@
           if (win) wins++;
           const record = wins / (i + 1);
           chart.setValue(record);
-          labelEl.innerText = `(${wins} / ${i+1})`;
+          labelEl.innerText = `(${wins} / ${i + 1})`;
         }
       }
     }
@@ -360,22 +368,35 @@
       }
     }
 
-    const mg0 = new MonteGame('root_0', false);
-    const mg1 = new MonteGame('root_1', false);
-    const mg2 = new MonteGame('root_2', false);
+    let mg0, mg1, mg2;
+    let c0, c1 ,c2;
+    let l0, l1, l2;
 
-    const c0 = new Chart('chart_0');
-    const c1 = new Chart('chart_1');
-    const c2 = new Chart('chart_2');
 
-    const l0 = document.getElementById('lbl-0');
-    const l1 = document.getElementById('lbl-1');
-    const l2 = document.getElementById('lbl-2');
+    function presentTournament() {
+      mg0 = new MonteGame('root_0', true);
+      mg1 = new MonteGame('root_1', true);
+      mg2 = new MonteGame('root_2', true);
 
-    mg0.playNGames(1000, c0, 'sticker', 0.25, l0);
-    setTimeout(() => mg1.playNGames(1000, c1, 'switcher', 0.25, l1), 100);
-    setTimeout(() => mg2.playNGames(1000, c2, 'rando',    0.25, l2), 200);
-    
+      c0 = new Chart('chart_0');
+      c1 = new Chart('chart_1');
+      c2 = new Chart('chart_2');
+
+      l0 = document.getElementById('lbl-0');
+      l1 = document.getElementById('lbl-1');
+      l2 = document.getElementById('lbl-2');
+    }
+
+    function startTournament(count) {
+      mg0.playNGames(count, c0, 'sticker', 0.25, l0);
+      setTimeout(() => mg1.playNGames(count, c1, 'switcher', 0.25, l1), 100);
+      setTimeout(() => mg2.playNGames(count, c2, 'rando', 0.25, l2), 200);
+    }
+
+    presentTournament();
+    startTournament(10);
+
+
   </script>
 </body>
 
