@@ -32,6 +32,12 @@
   <div id="switcher-content" class="uk-switcher uk-margin">
 
     <div class="uk-container uk-margin-top">
+      <div class="uk-flex uk-flex-center uk-margin-small-bottom">
+        <div class="uk-width-2-3@m uk-text-center">
+          <button id="solo-start-btn" class="uk-button uk-button-default">Start</button>
+          <button class="uk-button uk-button-default">Button</button>
+        </div>
+      </div>
       <div class="uk-flex uk-flex-center">
         <div class="uk-width-2-3@m">
           <div class="uk-card uk-card-default uk-card-body">
@@ -212,12 +218,12 @@
         this.player.group.translation.set(230, 60);
         this.player.group.linewidth = 4;
 
-        const cardCenterY = 40;
-        const cardCentersX = MonteGame.cardCentersX();
-        this.doors = cardCentersX.map(x => {
-          const card = new Two.RoundedRectangle(x, cardCenterY, 70, 120, 10);
-          card.linewidth = 0;
-          return card;
+        const doorCenterY = 40;
+        const doorCentersX = MonteGame.doorCentersX();
+        this.doors = doorCentersX.map(x => {
+          const door = new Two.RoundedRectangle(x, doorCenterY, 70, 120, 10);
+          door.linewidth = 0;
+          return door;
         });
         this.group = new Two.Group(this.monty.group, ...this.doors, this.player.group);
         this.scaleScene();
@@ -248,12 +254,12 @@
         return { width: 760, height: 620 };
       }
 
-      static cardCentersX() {
+      static doorCentersX() {
         return [150, 230, 310];
       }
 
       static targetCentersX() {
-        return this.cardCentersX().map(x => x - 10);
+        return this.doorCentersX().map(x => x - 10);
       }
 
       setupGame() {
@@ -263,14 +269,14 @@
       }
 
       drawDoors(gameOver = false) {
-        this.doors.forEach((card, i) => {
+        this.doors.forEach((door, i) => {
           if (this.colorDoors || gameOver) {
-            card.fill = i == this.winDoor ? '#487F1E' : '#DA2F2A';
-            card.stroke = i == this.winDoor ? '#487F1E' : '#DA2F2A';
+            door.fill = i == this.winDoor ? '#487F1E' : '#DA2F2A';
+            door.stroke = i == this.winDoor ? '#487F1E' : '#DA2F2A';
           } else {
-            card.fill = '#D8D8D8'
-            card.linewidth = 2;
-            card.stroke = '#0F0F0F';
+            door.fill = '#D8D8D8'
+            door.linewidth = 2;
+            door.stroke = '#0F0F0F';
           }
         });
       }
@@ -425,6 +431,9 @@
     });
 
     soloMG = new MonteGame('root_solo', false);
+    document.getElementById('solo-start-btn').addEventListener('click', e => {
+      console.log('button');
+    });
 
 
   </script>
