@@ -21,57 +21,69 @@
 <body>
   <nav class="uk-navbar-container" uk-navbar="mode: click">
     <div class="uk-navbar-left">
-      <ul class="uk-navbar-nav">
-        <li class="uk-active uk-margin-left"><a href="#">Manual</a></li>
-        <li class="uk-active uk-margin-left"><a href="#">Tournament</a></li>
-        <li class="uk-active">
-          <a href="#">Iterations</a>
-          <div class="uk-navbar-dropdown">
-            <ul class="uk-nav uk-navbar-dropdown-nav">
-              <li class="uk-active"><a href="#">10</a></li>
-              <li class="uk-active"><a href="#">100</a></li>
-              <li class="uk-active"><a href="#">1000</a></li>
-            </ul>
-          </div>
-        </li>
+      <ul class="uk-margin-left uk-margin-top uk-subnav" uk-switcher="connect: #switcher-content">
+        <li><a href="#">Item 1</a></li>
+        <li><a href="#">Item 2</a></li>
+        <li><a href="#">Item 3</a></li>
       </ul>
     </div>
   </nav>
 
-  <div class="uk-container uk-margin-top">
-    <div class="uk-grid uk-child-width-1-3@m uk-grid-match" uk-grid>
-      <div>
-        <div class="uk-card uk-card-default uk-card-body">
-          <h4>Never Switch <span id="lbl-0"></span></h4>
-          <hr />
-          <div id="root_0" style="width: 100%;"></div>
-          <hr />
-          <div id="chart_0"></div>
-        </div>
-      </div>
-      <div>
-        <div class="uk-card uk-card-default uk-card-body">
-          <h4>Always Switch <span id="lbl-1"></span></h4>
-          <hr />
-          <div id="root_1" style="width: 100%;"></div>
-          <hr />
-          <div id="chart_1"></div>
-        </div>
-      </div>
-      <div>
-        <div class="uk-card uk-card-default uk-card-body">
-          <h4>Coin Flip <span id="lbl-2"></span></h4>
-          <hr />
-          <div id="root_2" style="width: 100%;"></div>
-          <hr />
-          <div id="chart_2"></div>
+  <div id="switcher-content" class="uk-switcher uk-margin">
+
+    <div class="uk-container uk-margin-top">
+      <div class="uk-flex uk-flex-center">
+        <div class="uk-width-2-3@m">
+          <div class="uk-card uk-card-default uk-card-body">
+            <div id="root_solo" style="width: 100%;"></div>
+          </div>
         </div>
       </div>
     </div>
+
+
+
+    <div class="uk-container uk-margin-top">
+      <div class="uk-grid uk-child-width-1-3@m uk-grid-match" uk-grid>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body">
+            <h4>Never Switch <span id="lbl-0"></span></h4>
+            <hr />
+            <div id="root_0" style="width: 100%;"></div>
+            <hr />
+            <div id="chart_0"></div>
+          </div>
+        </div>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body">
+            <h4>Always Switch <span id="lbl-1"></span></h4>
+            <hr />
+            <div id="root_1" style="width: 100%;"></div>
+            <hr />
+            <div id="chart_1"></div>
+          </div>
+        </div>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body">
+            <h4>Coin Flip <span id="lbl-2"></span></h4>
+            <hr />
+            <div id="root_2" style="width: 100%;"></div>
+            <hr />
+            <div id="chart_2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="uk-container uk-margin-top">
+      <div>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+      </div>
+    </div>
+
   </div>
 
 
-  <div id="root_0" style="width: 370px; height: 320px;"></div>
   <script defer>
 
     /*********************************************************************************************************/
@@ -179,7 +191,7 @@
       constructor(rootID, colorDoors = true) {
         const elem = document.getElementById(rootID);
         const { width } = elem.getBoundingClientRect();
-        const height = width * 0.8;
+        const height = width * 0.75;
         this.two = new Two({ width, height }).appendTo(elem);
         this.colorDoors = colorDoors;
         this.setupScene();
@@ -194,13 +206,13 @@
 
       setupScene() {
         this.monty = new StickFigure();
-        this.monty.group.translation.set(50, 90);
+        this.monty.group.translation.set(60, 0);
 
         this.player = new StickFigure();
-        this.player.group.translation.set(230, 140);
+        this.player.group.translation.set(230, 60);
         this.player.group.linewidth = 4;
 
-        const cardCenterY = 140;
+        const cardCenterY = 40;
         const cardCentersX = MonteGame.cardCentersX();
         this.doors = cardCentersX.map(x => {
           const card = new Two.RoundedRectangle(x, cardCenterY, 70, 120, 10);
@@ -368,10 +380,11 @@
       }
     }
 
-    let mg0, mg1, mg2;
-    let c0, c1 ,c2;
-    let l0, l1, l2;
+    let soloMG;
 
+    let mg0, mg1, mg2;
+    let c0, c1, c2;
+    let l0, l1, l2;
 
     function presentTournament() {
       mg0 = new MonteGame('root_0', true);
@@ -393,8 +406,25 @@
       setTimeout(() => mg2.playNGames(count, c2, 'rando', 0.25, l2), 200);
     }
 
-    presentTournament();
-    startTournament(10);
+    UIkit.util.on(document, 'shown', (event) => {
+      const switcher = document.querySelector('[uk-switcher]');
+      if (switcher) {
+        const activeIndex = UIkit.switcher(switcher).index();
+        switch (activeIndex) {
+          case 1:
+            if (!mg0) {
+              presentTournament();
+              startTournament(10);
+            }
+            break;
+          case 2:
+            break;
+          default: break;
+        }
+      }
+    });
+
+    soloMG = new MonteGame('root_solo', false);
 
 
   </script>
