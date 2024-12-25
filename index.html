@@ -22,9 +22,8 @@
   <nav class="uk-navbar-container" uk-navbar="mode: click">
     <div class="uk-navbar-left">
       <ul class="uk-margin-left uk-margin-top uk-subnav" uk-switcher="connect: #switcher-content">
-        <li><a href="#">Item 1</a></li>
-        <li><a href="#">Item 2</a></li>
-        <li><a href="#">Item 3</a></li>
+        <li><a href="#">Single Game</a></li>
+        <li><a href="#">Tournament</a></li>
       </ul>
     </div>
   </nav>
@@ -33,9 +32,8 @@
 
     <div class="uk-container uk-margin-top">
       <div class="uk-flex uk-flex-center uk-margin-small-bottom">
-        <div class="uk-width-2-3@m uk-text-center">
+        <div id="button-container" class="uk-width-2-3@m uk-text-center" style="height: 54px;">
           <button id="solo-start-btn" class="uk-button uk-button-default">Start</button>
-          <button class="uk-button uk-button-default">Button</button>
         </div>
       </div>
       <div class="uk-flex uk-flex-center">
@@ -47,9 +45,13 @@
       </div>
     </div>
 
-
-
     <div class="uk-container uk-margin-top">
+      <div id="button-container" class="uk-width-1-1@m uk-text-center" style="height: 54px;">
+        <button id="play-10-btn" class="uk-button uk-button-default">Play 10</button>
+        <button id="play-100-btn" class="uk-button uk-button-default">Play 100</button>
+        <button id="play-1000-btn" class="uk-button uk-button-default">Play 1,000</button>
+      </div>
+
       <div class="uk-grid uk-child-width-1-3@m uk-grid-match" uk-grid>
         <div>
           <div class="uk-card uk-card-default uk-card-body">
@@ -80,15 +82,7 @@
         </div>
       </div>
     </div>
-
-
-    <div class="uk-container uk-margin-top">
-      <div>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-      </div>
-    </div>
-
   </div>
-
 
   <script defer>
 
@@ -215,7 +209,7 @@
         this.monty.group.translation.set(60, 0);
 
         this.player = new StickFigure();
-        this.player.group.translation.set(230, 60);
+        this.player.group.translation.set(230, 40);
         this.player.group.linewidth = 4;
 
         const doorCenterY = 40;
@@ -274,6 +268,7 @@
             door.fill = i == this.winDoor ? '#487F1E' : '#DA2F2A';
             door.stroke = i == this.winDoor ? '#487F1E' : '#DA2F2A';
           } else {
+            door.scale = 1;
             door.fill = '#D8D8D8'
             door.linewidth = 2;
             door.stroke = '#0F0F0F';
@@ -339,6 +334,80 @@
           labelEl.innerText = `(${wins} / ${i + 1})`;
         }
       }
+
+      // user game
+      async userStart() {
+        this.winDoor = Math.floor(Math.random() * 3);
+        this.drawDoors();
+        this.player.walk(0, 0);
+        this.monty.speak(true, "Choose");
+
+        setButtons([
+          { id: 'door-0', text: 'Door A', handler: async e => { await this.userChose(0) } },
+          { id: 'door-1', text: 'Door B', handler: async e => { await this.userChose(1) } },
+          { id: 'door-2', text: 'Door C', handler: async e => { await this.userChose(2) } }
+        ]);
+
+      }
+
+      async userChose(index) {
+        const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+
+        this.playerChoice = index;
+
+        const targetX = MonteGame.targetCentersX()[index];
+        await this.player.walk(targetX, 0.3);
+        this.player.point(true);
+
+        await pause(0.5);
+        this.monty.speak(true, "Switch?");
+        setButtons([
+          { id: 'switch-btn', text: 'Switch', handler: async e => { await this.userSwitched() } },
+          { id: 'stay-btn', text: 'Stay', handler: async e => { await this.userStays() } },
+        ]);
+        await pause(0.5);
+
+        const revealable = [0, 1, 2].filter(i => i != this.playerChoice && i != this.winDoor);
+        this.revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
+        const revealDoor = this.doors[this.revealIndex];
+        revealDoor.fill = '#DA2F2A';
+      }
+
+      async userSwitched() {
+        setButtons([]);
+        this.playerChoice = [0, 1, 2].filter(i => i != this.playerChoice && i != this.revealIndex)[0];
+        const targetX = MonteGame.targetCentersX()[this.playerChoice];
+        this.player.walk(targetX, 0.3);
+        this.userEndGame();
+      }
+
+      async userStays() {
+        setButtons([]);
+        this.player.shake(true, 6, 0.1);
+        this.userEndGame();
+      }
+
+      async userEndGame() {
+        const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+        await pause(1);
+
+        this.doors.forEach((door, i) => {
+          door.scale = (i == this.playerChoice) ? 1.1 : 0.75;
+          door.opacity = (i == this.playerChoice) ? 1.0 : 0.75;
+        });
+        this.drawDoors(true);
+        const win = this.playerChoice == this.winDoor;
+        this.monty.speak(true, win ? 'Win :-)' : 'Lose :-(');
+        if (win) {
+          this.player.shake(false, 10, 0.1);
+        } else {
+          this.player.point(false);
+        }
+        setButtons([
+          { id: 'start-btn', text: 'Replay', handler: async e => { await this.userStart() } }
+        ]);
+      }
+
     }
 
     /*********************************************************************************************************/
@@ -416,25 +485,36 @@
       const switcher = document.querySelector('[uk-switcher]');
       if (switcher) {
         const activeIndex = UIkit.switcher(switcher).index();
-        switch (activeIndex) {
-          case 1:
-            if (!mg0) {
-              presentTournament();
-              startTournament(10);
-            }
-            break;
-          case 2:
-            break;
-          default: break;
+        if (activeIndex == 1 && !mg0) {
+          presentTournament();
         }
       }
     });
 
+    function setButton(button) {
+      document.getElementById('button-container').insertAdjacentHTML(
+        'beforeend',
+        `<button id="${button.id}" class="uk-button uk-button-default">${button.text}</button>`
+      );
+      const newButton = document.getElementById(button.id);
+      if (newButton) {
+        newButton.addEventListener('click', button.handler);
+      }
+    }
+
+    function setButtons(buttons) {
+      document.getElementById('button-container').innerHTML = '';
+      buttons.forEach(setButton);
+    }
+
     soloMG = new MonteGame('root_solo', false);
     document.getElementById('solo-start-btn').addEventListener('click', e => {
-      console.log('button');
+      soloMG.userStart();
     });
 
+    document.getElementById('play-10-btn').addEventListener('click', e => startTournament(10));
+    document.getElementById('play-100-btn').addEventListener('click', e => startTournament(100));
+    document.getElementById('play-1000-btn').addEventListener('click', e => startTournament(1000));
 
   </script>
 </body>
