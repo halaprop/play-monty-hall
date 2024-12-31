@@ -1,7 +1,8 @@
 import Two from 'https://cdn.skypack.dev/two.js@latest';
 import { gsap } from 'https://cdn.skypack.dev/gsap';
 
-async function loadSvg(two, url) {
+async function loadSvg(two, name) {
+  const url = `./svgs/${name}.svg`;
   return new Promise(resolve => {
     two.load(url, (group, svg) => {
       const viewBox = svg.getAttribute('viewBox');
@@ -93,7 +94,7 @@ class Host {
   }
 
   async createScene(two) {
-    const svg = await loadSvg(two, './monty.svg');
+    const svg = await loadSvg(two, 'monty');
     this.width = svg.width;
     this.height = svg.height;
 
@@ -129,8 +130,8 @@ class Contestant {
   }
 
   async createScene(two) {
-    const defaultSvg = await loadSvg(two, './contst.svg');
-    const pointingSvg = await loadSvg(two, './contst-point.svg');
+    const defaultSvg = await loadSvg(two, 'contst');
+    const pointingSvg = await loadSvg(two, 'contst-point');
 
     this.defaultGroup = defaultSvg.group;
     this.pointingGroup = pointingSvg.group;
@@ -178,7 +179,7 @@ class Door {
   // djh - svg load is pretty slow. class level caches the svg. 
   static async goatSvg(two) {
     if (!this._goatSvg) {
-      this._goatSvg = await loadSvg(two, './goat.svg');
+      this._goatSvg = await loadSvg(two, 'goat');
     }
     return this._goatSvg;
   }
