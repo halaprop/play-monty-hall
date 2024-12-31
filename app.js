@@ -166,7 +166,7 @@ class Contestant {
     } else {
       params.y = "+=8";
     }
-    gsap.to(this.group.translation, params);
+    return gsap.to(this.group.translation, params);
   }
 }
 
@@ -222,11 +222,15 @@ class Door {
     this.goatGroup.visible = goatVisible;
   }
 
-  setWinVisible(win) {
-    this.rRect.fill = win ? 'green' : 'white';
-    this.text.fill = win ? 'white' : 'black';
-    this.text.value = win ? '$' : this.label;
-    this.text.size = win ? 32 : 18;
+  reveal(contestantIsWinner=false) {
+    if (this.isWinner) {
+      this.rRect.fill = contestantIsWinner ? 'green' : 'white';
+      this.text.fill = contestantIsWinner ? 'white' : 'black';
+      this.text.value = '$';
+      this.text.size = 32;    
+    } else {
+      this.setGoatVisible(true);
+    }
   }
 }
 
@@ -288,27 +292,68 @@ class Game {
       const y = (event.clientY - rect.top) / sceneScale;
 
       const index = metrics.doorRects.findIndex(d => d.containsPoint(x, y));
-      if (index >= 0) {
-        this.walkToDoor(index);
-        //console.log('hit', x, y, door);
-      } else {
-        //console.log('click', x, y);
+      if (index >= 0 && this.clickResolver) {
+        this.clickResolver(index);
+        this.clickResolver = null;
       }
     });
   }
 
-  async walkToDoor(index) {
-    const targetX = metrics.doorRects[index].left;
-    await this.contestant.walk(targetX - 15);
-    this.contestant.setPointing(true);
-    await this.contestant.shake(false, 10, 0.1);
-    this.host.setTalking(true, 'Dumpling');
-    this.doors[index].setWinVisible(true);
-    this.doors[1].setGoatVisible(true);
-    this.doors[0].setGoatVisible(true);
+  async getNextClick() {
+    return new Promise(resolve => this.clickResolver = resolve);
+  }
+
+  async contestantWalk(toIndex) {
+    const targetX = metrics.doorRects[toIndex].left - 15;
+    await this.contestant.walk(targetX);
+  }
+
+  async manualPlay() {
+    const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+
+    const winDoor = Math.floor(Math.random() * 3);
+    this.doors[winDoor].isWinner = true;
+    await pause(0.5);
+    this.host.setTalking(true, 'Choose a door');
+
+    const initialChoice = await this.getNextClick();
+
+    this.host.setTalking(false);
+    await this.contestantWalk(initialChoice);
     this.contestant.setPointing(true);
 
+    const revealable = [0, 1, 2].filter(i => i != initialChoice && i != winDoor);
+    const revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
+
+    await pause(0.5);
+    this.host.setTalking(true, 'Switch?');
+    this.doors[revealIndex].reveal();
+
+    let switchIndex = await this.getNextClick();
+
+    if (switchIndex == initialChoice) {
+      await this.contestant.shake(true, 6, 0.1);
+    } else {
+      await this.contestantWalk(switchIndex);
+    }
+    
+    await pause(0.5);
+    const win = switchIndex == winDoor;
+    this.doors.forEach(door => {
+      door.reveal(win);
+    });
+
+    if (win) {
+      this.host.setTalking(true, 'YOU WON!');
+      await pause(0.25);
+      await this.contestant.shake(false, 10, 0.1);
+    } else {
+      this.host.setTalking(true, 'You lost :-(');
+      await pause(0.25);
+      this.contestant.setPointing(false);
+    }
   }
+
 }
 
 /*********************************************************************************************************/
@@ -318,7 +363,7 @@ const metrics = new SceneMetrics();
 let soloGame, game0, game1, game2;
 
 soloGame = new Game('#solo-root');
-soloGame.createScene();
+soloGame.createScene().then(() => soloGame.manualPlay())
 
 UIkit.util.on(document, 'shown', (event) => {
   const switcher = document.querySelector('[uk-switcher]');
