@@ -11,6 +11,8 @@ async function loadSvg(two, url) {
   });
 }
 
+/*********************************************************************************************************/
+
 class Rect {
   constructor(centerX, centerY, width, height) {
     Object.assign(this, { centerX, centerY, width, height });
@@ -29,6 +31,8 @@ class Rect {
     return x >= this.left && x < this.right && y >= this.top && y < this.bottom;
   }
 }
+
+/*********************************************************************************************************/
 
 class SceneMetrics {
   constructor() {
@@ -82,8 +86,7 @@ class SceneMetrics {
   }
 }
 
-const metrics = new SceneMetrics();
-
+/*********************************************************************************************************/
 
 class Host {
   constructor() {
@@ -118,6 +121,8 @@ class Host {
     this.talkBubble.opacity = talking ? 1 : 0;
   }
 }
+
+/*********************************************************************************************************/
 
 class Contestant {
   constructor() {
@@ -156,13 +161,75 @@ class Contestant {
       yoyo: true,
     };
     if (isHorizontal) {
-      params.x = "+=8";
+      params.x = "-=8";
     } else {
       params.y = "+=8";
     }
     gsap.to(this.group.translation, params);
   }
 }
+
+/*********************************************************************************************************/
+
+class Door {
+  constructor() {
+  }
+
+  // djh - svg load is pretty slow. class level caches the svg. 
+  static async goatSvg(two) {
+    if (!this._goatSvg) {
+      this._goatSvg = await loadSvg(two, './goat.svg');
+    }
+    return this._goatSvg;
+  }
+
+  // instance level caches a clone
+  async goatSvg(two) {
+    if (!this._goatSvg) {
+      const { group, width, height } = await Door.goatSvg(two);
+      this._goatSvg = { group: group.clone(), width, height };
+    }
+    return this._goatSvg;
+  }
+
+
+  async createScene(two, index, label) {
+    this.label = label;
+    const metric = metrics.doorRects[index];
+    this.rRect = new Two.RoundedRectangle(...metric.asParams(), 10);
+    this.text = new Two.Text(label, metric.centerX, metric.top + 42, {
+      size: 18, alignment: 'center', family: 'Arial'
+    });
+
+    const goatSvg = await this.goatSvg(two);
+    const goatScale = metrics.doorWidth / goatSvg.width * 0.70;
+    const goatX = 5 + metric.centerX - (goatSvg.width / 2 * goatScale);
+    const goatY = 15 + metric.centerY - (goatSvg.height / 2 * goatScale);
+
+    this.goatGroup = goatSvg.group;
+    this.goatGroup.translation = new Two.Vector(goatX, goatY);
+    this.goatGroup.scale = goatScale;
+    this.goatGroup.visible = false;
+
+    this.group = new Two.Group([this.rRect, this.text, this.goatGroup]);
+    return this;
+  }
+
+  setGoatVisible(goatVisible) {
+    this.rRect.visible = !goatVisible;
+    this.text.visible = !goatVisible;
+    this.goatGroup.visible = goatVisible;
+  }
+
+  setWinVisible(win) {
+    this.rRect.fill = win ? 'green' : 'white';
+    this.text.fill = win ? 'white' : 'black';
+    this.text.value = win ? '$' : this.label;
+    this.text.size = win ? 32 : 18;
+  }
+}
+
+/*********************************************************************************************************/
 
 class Game {
   constructor(querySelector) {
@@ -197,14 +264,11 @@ class Game {
     this.host.group.translation = new Two.Vector(metrics.hostX, metrics.hostY);
     this.host.group.scale = hostScale;
 
-    this.doors = ['A', 'B', 'C'].map((label, index) => {
-      const metric = metrics.doorRects[index];
-      const rect = new Two.RoundedRectangle(...metric.asParams(), 10);
-      const text = new Two.Text(label, metric.centerX, metric.top + 42, {
-        size: 18, alignment: 'center', family: 'Arial'
-      });
-      return new Two.Group([rect, text]);
+    const doorQs = ['A', 'B', 'C'].map((label, index) => {
+      const door = new Door();
+      return door.createScene(this.two, index, label);
     });
+    this.doors = await Promise.all(doorQs);
 
     this.contestant = new Contestant();
     await this.contestant.createScene(this.two);
@@ -212,7 +276,7 @@ class Game {
     this.contestant.group.translation = new Two.Vector(metrics.playerX, metrics.playerY)
     this.contestant.group.scale = contestantScale;
 
-    this.two.add(...this.doors);
+    this.two.add(...this.doors.map(d => d.group));
     this.two.add(this.contestant.group);
     this.two.add(this.host.group);
 
@@ -234,13 +298,21 @@ class Game {
 
   async walkToDoor(index) {
     const targetX = metrics.doorRects[index].left;
-    await this.contestant.walk(targetX - 20);
+    await this.contestant.walk(targetX - 15);
     this.contestant.setPointing(true);
     await this.contestant.shake(false, 10, 0.1);
-    this.host.setTalking(true, 'Dumpling')
+    this.host.setTalking(true, 'Dumpling');
+    this.doors[index].setWinVisible(true);
+    this.doors[1].setGoatVisible(true);
+    this.doors[0].setGoatVisible(true);
+    this.contestant.setPointing(true);
+
   }
 }
 
+/*********************************************************************************************************/
+
+const metrics = new SceneMetrics();
 
 let soloGame, game0, game1, game2;
 
