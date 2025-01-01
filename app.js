@@ -3,7 +3,7 @@ import { gsap } from 'https://cdn.skypack.dev/gsap';
 
 import { Host, Contestant, Door } from './scene-objects.js';
 import { metrics } from './scene-metrics.js';
-import { Chart } from './utils.js';
+import { sprites, Chart } from './utils.js';
 
 /*********************************************************************************************************/
 
@@ -26,9 +26,9 @@ class Game {
     });
   }
 
-  async createScene() {
+  createScene() {
     this.host = new Host();
-    await this.host.createScene(this.two);
+    this.host.createScene();
 
     const hostScale = 0.9 * metrics.doorHeight / this.host.height;
     const contestantScale = metrics.doorHeight / this.host.height;
@@ -36,14 +36,14 @@ class Game {
     this.host.group.translation = new Two.Vector(metrics.hostX, metrics.hostY);
     this.host.group.scale = hostScale;
 
-    const doorQs = ['A', 'B', 'C'].map((label, index) => {
+    this.doors = ['A', 'B', 'C'].map((label, index) => {
       const door = new Door();
-      return door.createScene(this.two, index, label);
+      door.createScene(index, label);
+      return door;
     });
-    this.doors = await Promise.all(doorQs);
 
     this.contestant = new Contestant();
-    await this.contestant.createScene(this.two);
+    this.contestant.createScene();
 
     this.contestant.group.translation = new Two.Vector(metrics.playerX, metrics.playerY);
     this.contestant.group.scale = contestantScale;
@@ -148,7 +148,6 @@ class Tournament {
     this.games = ['#root_0', '#root_1', '#root_2'].map(id => new Game(id));
     this.labels = ['lbl-0', 'lbl-1', 'lbl-2'].map(id => document.getElementById(id));
     this.charts = ['chart_0', 'chart_1', 'chart_2'].map(id => new Chart(id)); 
-    this.createdScenes = false;
   }
 
   pause(s) {
@@ -159,11 +158,8 @@ class Tournament {
     return ['sticker', 'switcher', 'random'];
   }
 
-  async createScenes() {
-    if (!this.createdScenes) {
-      await Promise.all(this.games.map(game => game.createScene()));
-      this.createdScenes = true;
-    }
+  createScenes() {
+    this.games.map(game => game.createScene());    
   }
 
   reset() {
@@ -207,9 +203,12 @@ const play10Button = document.getElementById('play-10-btn');
 const play100Button = document.getElementById('play-100-btn');
 const play1000Button = document.getElementById('play-1000-btn');
 
+let tournament;
+
 window.addEventListener('load', async (event) => {
+  await sprites.loadAll();
   const soloGame = new Game('#solo-root');
-  await soloGame.createScene();
+  soloGame.createScene();
   
   playButton.addEventListener('click', async () => {
     soloGame.reset();
@@ -222,9 +221,9 @@ UIkit.util.on(document, 'shown', async (event) => {
   const switcher = document.querySelector('[uk-switcher]');
   if (switcher) {
     const activeIndex = UIkit.switcher(switcher).index();
-    if (activeIndex == 1) {
-      const tournament = new Tournament();
-      await tournament.createScenes();
+    if (activeIndex == 1 && !tournament) {
+      tournament = new Tournament();
+      tournament.createScenes();
 
       play10Button.addEventListener('click', () => tournament.start(10));
       play100Button.addEventListener('click', () => tournament.start(100));

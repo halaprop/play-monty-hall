@@ -2,7 +2,7 @@
 import Two from 'https://cdn.skypack.dev/two.js@latest';
 import { gsap } from 'https://cdn.skypack.dev/gsap';
 
-import { loadSvg } from './utils.js';
+import { sprites } from './utils.js';
 import { metrics } from './scene-metrics.js';
 
 /*********************************************************************************************************/
@@ -11,11 +11,10 @@ export class Host {
   constructor() {
   }
 
-  async createScene(two) {
-    const svg = await loadSvg(two, 'monty');
+  createScene() {
+    const svg = sprites.sprite('monty')
     this.width = svg.width;
     this.height = svg.height;
-
 
     const { bubbleXOffsetB, bubbleXOffsetC, bubbleY } = metrics.talkBubbleParams;
 
@@ -51,9 +50,9 @@ export class Contestant {
   constructor() {
   }
 
-  async createScene(two) {
-    const defaultSvg = await loadSvg(two, 'contst');
-    const pointingSvg = await loadSvg(two, 'contst-point');
+  createScene() {
+    const defaultSvg = sprites.sprite('contst');
+    const pointingSvg = sprites.sprite('contst-point');
 
     this.defaultGroup = defaultSvg.group;
     this.pointingGroup = pointingSvg.group;
@@ -103,24 +102,7 @@ export class Door {
   constructor() {
   }
 
-  // djh - svg load is pretty slow. class level caches the svg. 
-  static async goatSvg(two) {
-    if (!this._goatSvg) {
-      this._goatSvg = await loadSvg(two, 'goat');
-    }
-    return this._goatSvg;
-  }
-
-  // instance level caches a clone
-  async goatSvg(two) {
-    if (!this._goatSvg) {
-      const { group, width, height } = await Door.goatSvg(two);
-      this._goatSvg = { group: group.clone(), width, height };
-    }
-    return this._goatSvg;
-  }
-
-  async createScene(two, index, label) {
+  createScene(index, label) {
     this.label = label;
     const metric = metrics.doorRects[index];
     this.rRect = new Two.RoundedRectangle(...metric.asParams(), 10);
@@ -128,7 +110,8 @@ export class Door {
       size: 18, alignment: 'center', family: 'Arial'
     });
 
-    const goatSvg = await this.goatSvg(two);
+    const goatSvg = sprites.sprite('goat');
+    
     const goatScale = metrics.doorWidth / goatSvg.width * 0.70;
     const goatX = 5 + metric.centerX - (goatSvg.width / 2 * goatScale);
     const goatY = 15 + metric.centerY - (goatSvg.height / 2 * goatScale);
