@@ -1,256 +1,13 @@
 import Two from 'https://cdn.skypack.dev/two.js@latest';
 import { gsap } from 'https://cdn.skypack.dev/gsap';
 
-async function loadSvg(two, name) {
-  const url = `./svgs/${name}.svg`;
-  return new Promise(resolve => {
-    two.load(url, (group, svg) => {
-      const viewBox = svg.getAttribute('viewBox');
-      const [_0, _1, width, height] = viewBox.split(' ').map(Number);
-      resolve({ group, width, height })
-    });
-  });
-}
+import { Host, Contestant, Door } from './scene-objects.js';
+import { metrics } from './scene-metrics.js';
+import { Chart } from './utils.js';
+
 
 /*********************************************************************************************************/
 
-class Rect {
-  constructor(centerX, centerY, width, height) {
-    Object.assign(this, { centerX, centerY, width, height });
-  }
-
-  asParams() {
-    return [this.centerX, this.centerY, this.width, this.height];
-  }
-
-  get left() { return this.centerX - this.width / 2; }
-  get right() { return this.centerX + this.width / 2; }
-  get top() { return this.centerY - this.height / 2; }
-  get bottom() { return this.centerY + this.height / 2; }
-
-  containsPoint(x, y) {
-    return x >= this.left && x < this.right && y >= this.top && y < this.bottom;
-  }
-}
-
-/*********************************************************************************************************/
-
-class SceneMetrics {
-  constructor() {
-    this.worldWidth = 600
-    this.worldHeight = 300;
-    this.marginX = 20;
-  }
-
-  get worldCenterX() {
-    return this.worldWidth / 2;
-  }
-  get worldCenterY() {
-    return this.worldHeight / 2;
-  }
-  get doorCenterY() {
-    return this.worldCenterY * 7 / 8;
-  }
-  get doorHeight() {
-    return this.worldHeight / 2;
-  }
-  get doorWidth() {
-    return this.doorHeight * 1 / 2;
-  }
-  get doorRects() {
-    return [
-      new Rect(this.worldCenterX - this.doorWidth - this.marginX, this.doorCenterY, this.doorWidth, this.doorHeight),
-      new Rect(this.worldCenterX, this.doorCenterY, this.doorWidth, this.doorHeight),
-      new Rect(this.worldCenterX + this.doorWidth + this.marginX, this.doorCenterY, this.doorWidth, this.doorHeight),
-    ];
-  }
-  get hostX() {
-    return this.doorRects[0].centerX - this.doorWidth - (4 * this.marginX);
-  }
-  get hostY() {
-    return this.doorRects[0].top;
-  }
-
-  get talkBubbleParams() {
-    return {
-      bubbleXOffsetB: -50,
-      bubbleXOffsetC: 20,
-      bubbleY: 70
-    };
-  }
-
-  get playerX() {
-    return this.hostX + this.doorWidth;
-  }
-  get playerY() {
-    return this.worldCenterY - this.doorHeight / 3;
-  }
-}
-
-/*********************************************************************************************************/
-
-class Host {
-  constructor() {
-  }
-
-  async createScene(two) {
-    const svg = await loadSvg(two, 'monty');
-    this.width = svg.width;
-    this.height = svg.height;
-
-
-    const { bubbleXOffsetB, bubbleXOffsetC, bubbleY } = metrics.talkBubbleParams;
-
-    const bubble = new Two.RoundedRectangle(this.width*2, -bubbleY, this.width*2, bubbleY, 10);
-    const bubbleTail = new Two.Path([
-      new Two.Anchor(this.width, -bubbleY),
-      new Two.Anchor(this.width+bubbleXOffsetB, bubbleY/2),
-      new Two.Anchor(this.width+bubbleXOffsetC, -bubbleY/2)
-    ]);
-
-    this.text = new Two.Text('', this.width*2, -bubbleY, {
-      size: 38, alignment: 'center', family: 'Arial'
-    });
-    this.talkBubble = new Two.Group([bubble, bubbleTail, this.text]);
-
-    this.group = new Two.Group([svg.group, this.talkBubble]);
-    this.setTalking(false);
-  }
-
-  setTalking(talking, text = '') {
-    this.text.value = text;
-    this.talkBubble.opacity = talking ? 1 : 0;
-  }
-
-  reset() {
-    this.setTalking(false);
-  }
-}
-
-/*********************************************************************************************************/
-
-class Contestant {
-  constructor() {
-  }
-
-  async createScene(two) {
-    const defaultSvg = await loadSvg(two, 'contst');
-    const pointingSvg = await loadSvg(two, 'contst-point');
-
-    this.defaultGroup = defaultSvg.group;
-    this.pointingGroup = pointingSvg.group;
-
-    this.group = new Two.Group([this.defaultGroup, this.pointingGroup]);
-    this.setPointing(false);
-  }
-
-  setPointing(pointing) {
-    this.defaultGroup.visible = !pointing;
-    this.pointingGroup.visible = pointing;
-  }
-
-  async walk(targetX, pxps = 260) {
-    const distance = Math.abs(targetX - this.group.translation.x);
-    const durationAdj = distance / pxps;
-    return gsap.to(this.group.translation, {
-      x: targetX,
-      duration: durationAdj,
-      ease: 'sine'
-    });
-  }
-
-  async shake(isHorizontal, count, duration) {
-    const params = {
-      duration,
-      repeat: Math.max(1, count - 1),
-      yoyo: true,
-    };
-    if (isHorizontal) {
-      params.x = "-=8";
-    } else {
-      params.y = "+=8";
-    }
-    return gsap.to(this.group.translation, params);
-  }
-
-  reset() {
-    this.setPointing(false);
-    this.group.translation = new Two.Vector(metrics.playerX, metrics.playerY);
-  }
-
-}
-
-/*********************************************************************************************************/
-
-class Door {
-  constructor() {
-  }
-
-  // djh - svg load is pretty slow. class level caches the svg. 
-  static async goatSvg(two) {
-    if (!this._goatSvg) {
-      this._goatSvg = await loadSvg(two, 'goat');
-    }
-    return this._goatSvg;
-  }
-
-  // instance level caches a clone
-  async goatSvg(two) {
-    if (!this._goatSvg) {
-      const { group, width, height } = await Door.goatSvg(two);
-      this._goatSvg = { group: group.clone(), width, height };
-    }
-    return this._goatSvg;
-  }
-
-
-  async createScene(two, index, label) {
-    this.label = label;
-    const metric = metrics.doorRects[index];
-    this.rRect = new Two.RoundedRectangle(...metric.asParams(), 10);
-    this.text = new Two.Text(label, metric.centerX, metric.top + 42, {
-      size: 18, alignment: 'center', family: 'Arial'
-    });
-
-    const goatSvg = await this.goatSvg(two);
-    const goatScale = metrics.doorWidth / goatSvg.width * 0.70;
-    const goatX = 5 + metric.centerX - (goatSvg.width / 2 * goatScale);
-    const goatY = 15 + metric.centerY - (goatSvg.height / 2 * goatScale);
-
-    this.goatGroup = goatSvg.group;
-    this.goatGroup.translation = new Two.Vector(goatX, goatY);
-    this.goatGroup.scale = goatScale;
-    this.goatGroup.visible = false;
-
-    this.group = new Two.Group([this.rRect, this.text, this.goatGroup]);
-    return this;
-  }
-
-  setGoatVisible(goatVisible) {
-    this.rRect.visible = !goatVisible;
-    this.text.visible = !goatVisible;
-    this.goatGroup.visible = goatVisible;
-  }
-
-  reveal(isPrizeDoor, contestantIsWinner=false) {
-    if (isPrizeDoor) {
-      this.rRect.fill = contestantIsWinner ? 'green' : 'white';
-      this.text.fill = contestantIsWinner ? 'white' : 'black';
-      this.text.value = '$';
-      this.text.size = 32;    
-    } else {
-      this.setGoatVisible(true);
-    }
-  }
-
-  reset() {
-    this.setGoatVisible(false);
-    this.rRect.fill = 'white';
-    this.text.fill = 'black';
-    this.text.value = this.label;
-    this.text.size = 18;    
-  }
-}
 
 /*********************************************************************************************************/
 
@@ -267,10 +24,6 @@ class Game {
     this.two.scene.translation = new Two.Vector(0, 0);
     const sceneScale = elWidth / metrics.worldWidth;
     this.two.scene.scale = sceneScale;
-
-    // for debug
-    // const rect = this.two.makeRectangle(elWidth/sceneScale/2, elHeight/sceneScale/2, elWidth/sceneScale, elHeight/sceneScale-3);
-    // rect.fill = 'lightblue';
 
     gsap.ticker.add(() => {
       this.two.update();
@@ -335,10 +88,8 @@ class Game {
   // strategy is 'manual' 'switcher', 'sticker', 'random'
   async playAGame(strategy='manual') {
     const pause = s => new Promise(resolve => setTimeout(resolve, strategy=='manual' ? s*1000 : 0));
-    // const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
 
     const prizeDoorIndex = Math.floor(Math.random() * 3);
-    this.doors[prizeDoorIndex].isWinner = true;
     await pause(0.5);
     this.host.setTalking(true, 'Choose a door...');
 
@@ -406,10 +157,37 @@ class Game {
 /*********************************************************************************************************/
 
 
+class Tournament {
+  constructor() {
+    this.games = ['#root_0', '#root_1', '#root_2'].map(id => new Game(id));
+    this.labels = ['lbl-0', 'lbl-1', 'lbl-2'].map(id => document.getElementById(id));
+    this.charts = ['chart_0', 'chart_1', 'chart_2'].map(id => new Chart(id)); 
+    this.isSetup = false;
+  }
+
+  async setup() {
+    if (!this.isSetup) {
+      this.isSetup = true;
+      await Promise.all(this.games.map(game => game.createScene()));
+    }
+  }
+
+  async start(count) {
+    const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
+    const strategies = ['sticker', 'switcher', 'random'];
+  
+    for (let i=0; i<3; i++) {
+      await pause(Math.random() * 0.5);
+      this.games[i].reset();
+      this.games[i].playTournament(strategies[i], count);
+    }
+  }
+}
+
+
 
 /*********************************************************************************************************/
 
-const metrics = new SceneMetrics();
 
 let index1Shown = false;
 
@@ -443,18 +221,12 @@ UIkit.util.on(document, 'shown', async (event) => {
   if (switcher) {
     const activeIndex = UIkit.switcher(switcher).index();
     if (activeIndex == 1) {
-      if (!index1Shown) {
-        index1Shown = true;
-        const game0 = new Game('#root_0');
-        const game1 = new Game('#root_1');
-        const game2 = new Game('#root_2');
-        const games = [ game0, game1, game2 ];
-        await Promise.all(games.map(game => game.createScene()));
+      const tournament = new Tournament();
+      await tournament.setup();
 
-        play10Button.addEventListener('click', () => startTournament(games, 10));
-        play100Button.addEventListener('click', () => startTournament(games, 100));
-        play1000Button.addEventListener('click', () => startTournament(games, 1000));
-      }
+      play10Button.addEventListener('click', () => tournament.start(10));
+      play100Button.addEventListener('click', () => tournament.start(100));
+      play1000Button.addEventListener('click', () => tournament.start(1000));
     }
   }
 });
