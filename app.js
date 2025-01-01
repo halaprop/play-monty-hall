@@ -148,7 +148,7 @@ class Tournament {
     this.games = ['#root_0', '#root_1', '#root_2'].map(id => new Game(id));
     this.labels = ['lbl-0', 'lbl-1', 'lbl-2'].map(id => document.getElementById(id));
     this.charts = ['chart_0', 'chart_1', 'chart_2'].map(id => new Chart(id)); 
-    this.isSetup = false;
+    this.createdScenes = false;
   }
 
   pause(s) {
@@ -159,14 +159,21 @@ class Tournament {
     return ['sticker', 'switcher', 'random'];
   }
 
-  async setup() {
-    if (!this.isSetup) {
+  async createScenes() {
+    if (!this.createdScenes) {
       await Promise.all(this.games.map(game => game.createScene()));
-      this.isSetup = true;
+      this.createdScenes = true;
     }
   }
 
+  reset() {
+    this.games.forEach(game => game.reset());
+    this.labels.forEach(label => label.innerText = '');
+    this.charts.forEach(chart => chart.reset());
+  }
+
   async start(count) {
+    this.reset();
     for (let gameIndex=0; gameIndex<Tournament.strategies().length; gameIndex++) {
       this.playNGames(gameIndex, count);
     }
@@ -203,9 +210,11 @@ const play1000Button = document.getElementById('play-1000-btn');
 window.addEventListener('load', async (event) => {
   const soloGame = new Game('#solo-root');
   await soloGame.createScene();
-  playButton.addEventListener('click', () => {
+  
+  playButton.addEventListener('click', async () => {
     soloGame.reset();
-    soloGame.playAGame('manual');
+    await soloGame.playAGame('manual');
+    playButton.innerText = 'Replay';
   });
 });
 
@@ -215,7 +224,7 @@ UIkit.util.on(document, 'shown', async (event) => {
     const activeIndex = UIkit.switcher(switcher).index();
     if (activeIndex == 1) {
       const tournament = new Tournament();
-      await tournament.setup();
+      await tournament.createScenes();
 
       play10Button.addEventListener('click', () => tournament.start(10));
       play100Button.addEventListener('click', () => tournament.start(100));

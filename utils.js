@@ -1,15 +1,92 @@
+
+import Two from 'https://cdn.skypack.dev/two.js@latest';
+
+
 /*********************************************************************************************************/
 
 export async function loadSvg(two, name) {
   const url = `./svgs/${name}.svg`;
+
   return new Promise(resolve => {
+
+
+
+
+
     two.load(url, (group, svg) => {
+
+
       const viewBox = svg.getAttribute('viewBox');
+
+
+
       const [_0, _1, width, height] = viewBox.split(' ').map(Number);
+
+
+
+
       resolve({ group, width, height })
     });
   });
 }
+
+/*********************************************************************************************************/
+
+class Sprites {
+  constructor() {
+    this.montyQ = Sprites.loadSvg('monty');
+    this.contstQ = Sprites.loadSvg('contst');
+    this.contstPointQ = Sprites.loadSvg('contst-point');
+    this.goatQ = Sprites.loadSvg('goat');
+  }
+
+  async monty() {
+    const { group, width, height } = await this.montyQ;
+    return { group: group.clone(), width, height }
+  }
+
+  async contst() {
+    const { group, width, height } = await this.contstQ;
+    return { group: group.clone(), width, height }
+  }
+
+  async contstPoint() {
+    const { group, width, height } = await this.contstPointQ;
+    return { group: group.clone(), width, height }
+  }
+
+  async goat() {
+    const { group, width, height } = await this.goatQ;
+    return { group: group.clone(), width, height }
+  }
+
+  static loadSvg(name) {
+    const url = `./svgs/${name}.svg`;
+    return fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load SVG: ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(svgText => {
+        const parser = new DOMParser();
+        const svg = parser.parseFromString(svgText, "image/svg+xml").documentElement;
+        const viewBox = svg.getAttribute('viewBox');
+        if (!viewBox) {
+          throw new Error('SVG does not have a viewBox attribute');
+        }
+        const [_0, _1, width, height] = viewBox.split(' ').map(Number);
+
+        const two = new Two({ width, height });
+        const group = two.interpret(svg);
+
+        return { group, width, height };
+      });
+  }
+}
+
+export const sprites = new Sprites();
 
 /*********************************************************************************************************/
 
@@ -64,6 +141,11 @@ export class Chart {
       }
     };
     Plotly.newPlot(this.rootID, this.data, this.layout);
+  }
+
+  reset() {
+    this.value = 0;
+    this.setValue(0);
   }
 
   setValue(value) {
