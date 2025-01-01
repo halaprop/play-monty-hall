@@ -5,6 +5,8 @@ import { gsap } from 'https://cdn.skypack.dev/gsap';
 import { loadSvg } from './utils.js';
 import { metrics } from './scene-metrics.js';
 
+/*********************************************************************************************************/
+
 export class Host {
   constructor() {
   }
@@ -93,7 +95,6 @@ export class Contestant {
     this.setPointing(false);
     this.group.translation = new Two.Vector(metrics.playerX, metrics.playerY);
   }
-
 }
 
 /*********************************************************************************************************/
@@ -118,7 +119,6 @@ export class Door {
     }
     return this._goatSvg;
   }
-
 
   async createScene(two, index, label) {
     this.label = label;

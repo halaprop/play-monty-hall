@@ -5,10 +5,6 @@ import { Host, Contestant, Door } from './scene-objects.js';
 import { metrics } from './scene-metrics.js';
 import { Chart } from './utils.js';
 
-
-/*********************************************************************************************************/
-
-
 /*********************************************************************************************************/
 
 class Game {
@@ -115,12 +111,12 @@ class Game {
     }
 
     await pause(0.5);
-    const contestentWins = finalChoice == prizeDoorIndex;
+    const contestentWon = finalChoice == prizeDoorIndex;
     this.doors.forEach((door, index) => {
-      door.reveal(index == prizeDoorIndex, contestentWins);
+      door.reveal(index == prizeDoorIndex, contestentWon);
     });
 
-    if (contestentWins) {
+    if (contestentWon) {
       this.host.setTalking(true, 'You win!');
       await pause(0.25);
       await this.contestant.shake(false, 10, 0.1);
@@ -129,7 +125,7 @@ class Game {
       await pause(0.25);
       this.contestant.setPointing(false);
     }
-    return contestentWins;
+    return contestentWon;
   }
 
   async switchIndexForStrategy(strategy, initialChoice, revealIndex) {
@@ -141,16 +137,6 @@ class Game {
 
     const shouldSwitch = Math.floor(Math.random() * 2);
     return shouldSwitch ? switchableIndex : initialChoice;
-  }
-
-  async playTournament(strategy, count) {
-    const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
-
-    for (let i=0; i<count; i++) {
-      this.reset();
-      await this.playAGame(strategy);
-      await pause(0.5);
-    }
   }
 }
 
@@ -165,47 +151,54 @@ class Tournament {
     this.isSetup = false;
   }
 
+  pause(s) {
+    return new Promise(resolve => setTimeout(resolve, s*1000));
+  }
+
+  static strategies() {
+    return ['sticker', 'switcher', 'random'];
+  }
+
   async setup() {
     if (!this.isSetup) {
-      this.isSetup = true;
       await Promise.all(this.games.map(game => game.createScene()));
+      this.isSetup = true;
     }
   }
 
   async start(count) {
-    const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
-    const strategies = ['sticker', 'switcher', 'random'];
-  
-    for (let i=0; i<3; i++) {
-      await pause(Math.random() * 0.5);
-      this.games[i].reset();
-      this.games[i].playTournament(strategies[i], count);
+    for (let gameIndex=0; gameIndex<Tournament.strategies().length; gameIndex++) {
+      this.playNGames(gameIndex, count);
+    }
+  }
+
+  async playNGames(gameIndex, count) {
+    await this.pause(Math.random() * 0.5);
+
+    const game = this.games[gameIndex];
+    const strategy = Tournament.strategies()[gameIndex];
+    const label = this.labels[gameIndex];
+    const chart = this.charts[gameIndex];
+
+    let winCount = 0;
+
+    for (let i=0; i<count; i++) {
+      game.reset();
+      const win = await game.playAGame(strategy);
+      if (win) winCount++;
+      label.innerText = `(${winCount} / ${i + 1})`;
+      chart.setValue(winCount / (i+1));
+      await this.pause(0.5);
     }
   }
 }
 
-
-
 /*********************************************************************************************************/
-
-
-let index1Shown = false;
 
 const playButton = document.getElementById('play-btn');
 const play10Button = document.getElementById('play-10-btn');
 const play100Button = document.getElementById('play-100-btn');
 const play1000Button = document.getElementById('play-1000-btn');
-
-async function startTournament(games, count) {
-  const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
-  const strategies = ['sticker', 'switcher', 'random'];
-
-  for (let i=0; i<3; i++) {
-    await pause(Math.random() * 0.5);
-    games[i].reset();
-    games[i].playTournament(strategies[i], count);
-  }
-}
 
 window.addEventListener('load', async (event) => {
   const soloGame = new Game('#solo-root');
@@ -230,5 +223,3 @@ UIkit.util.on(document, 'shown', async (event) => {
     }
   }
 });
-
-
