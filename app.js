@@ -121,6 +121,10 @@ class Host {
     this.text.value = text;
     this.talkBubble.opacity = talking ? 1 : 0;
   }
+
+  reset() {
+    this.setTalking(false);
+  }
 }
 
 /*********************************************************************************************************/
@@ -168,6 +172,12 @@ class Contestant {
     }
     return gsap.to(this.group.translation, params);
   }
+
+  reset() {
+    this.setPointing(false);
+    this.group.translation = new Two.Vector(metrics.playerX, metrics.playerY);
+  }
+
 }
 
 /*********************************************************************************************************/
@@ -222,8 +232,8 @@ class Door {
     this.goatGroup.visible = goatVisible;
   }
 
-  reveal(contestantIsWinner=false) {
-    if (this.isWinner) {
+  reveal(isPrizeDoor, contestantIsWinner=false) {
+    if (isPrizeDoor) {
       this.rRect.fill = contestantIsWinner ? 'green' : 'white';
       this.text.fill = contestantIsWinner ? 'white' : 'black';
       this.text.value = '$';
@@ -231,6 +241,14 @@ class Door {
     } else {
       this.setGoatVisible(true);
     }
+  }
+
+  reset() {
+    this.setGoatVisible(false);
+    this.rRect.fill = 'white';
+    this.text.fill = 'black';
+    this.text.value = this.label;
+    this.text.size = 18;    
   }
 }
 
@@ -278,7 +296,7 @@ class Game {
     this.contestant = new Contestant();
     await this.contestant.createScene(this.two);
 
-    this.contestant.group.translation = new Two.Vector(metrics.playerX, metrics.playerY)
+    this.contestant.group.translation = new Two.Vector(metrics.playerX, metrics.playerY);
     this.contestant.group.scale = contestantScale;
 
     this.two.add(...this.doors.map(d => d.group));
@@ -308,73 +326,135 @@ class Game {
     await this.contestant.walk(targetX);
   }
 
-  async manualPlay() {
-    const pause = s => new Promise(resolve => setTimeout(resolve, 1000 * s));
+  reset() {
+    this.host.reset();
+    this.contestant.reset();
+    this.doors.forEach(door => door.reset());
+  }
 
-    const winDoor = Math.floor(Math.random() * 3);
-    this.doors[winDoor].isWinner = true;
+  // strategy is 'manual' 'switcher', 'sticker', 'random'
+  async playAGame(strategy='manual') {
+    const pause = s => new Promise(resolve => setTimeout(resolve, strategy=='manual' ? s*1000 : 0));
+    // const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
+
+    const prizeDoorIndex = Math.floor(Math.random() * 3);
+    this.doors[prizeDoorIndex].isWinner = true;
     await pause(0.5);
-    this.host.setTalking(true, 'Choose a door');
+    this.host.setTalking(true, 'Choose a door...');
 
-    const initialChoice = await this.getNextClick();
+    const initialChoice = strategy=='manual' ? await this.getNextClick() : Math.floor(Math.random() * 3);
 
     this.host.setTalking(false);
     await this.contestantWalk(initialChoice);
     this.contestant.setPointing(true);
 
-    const revealable = [0, 1, 2].filter(i => i != initialChoice && i != winDoor);
+    const revealable = [0, 1, 2].filter(i => i != initialChoice && i != prizeDoorIndex);
     const revealIndex = revealable[Math.floor(Math.random() * revealable.length)];
 
     await pause(0.5);
     this.host.setTalking(true, 'Switch?');
     this.doors[revealIndex].reveal();
 
-    let switchIndex = await this.getNextClick();
+    let finalChoice = await this.switchIndexForStrategy(strategy, initialChoice, revealIndex);
 
-    if (switchIndex == initialChoice) {
+    if (finalChoice == initialChoice) {
       await this.contestant.shake(true, 6, 0.1);
     } else {
-      await this.contestantWalk(switchIndex);
+      await this.contestantWalk(finalChoice);
     }
-    
+
     await pause(0.5);
-    const win = switchIndex == winDoor;
-    this.doors.forEach(door => {
-      door.reveal(win);
+    const contestentWins = finalChoice == prizeDoorIndex;
+    this.doors.forEach((door, index) => {
+      door.reveal(index == prizeDoorIndex, contestentWins);
     });
 
-    if (win) {
-      this.host.setTalking(true, 'YOU WON!');
+    if (contestentWins) {
+      this.host.setTalking(true, 'You win!');
       await pause(0.25);
       await this.contestant.shake(false, 10, 0.1);
     } else {
-      this.host.setTalking(true, 'You lost :-(');
+      this.host.setTalking(true, 'You lose :-(');
       await pause(0.25);
       this.contestant.setPointing(false);
     }
+    return contestentWins;
   }
 
+  async switchIndexForStrategy(strategy, initialChoice, revealIndex) {
+    if (strategy == 'manual') return await this.getNextClick();
+    if (strategy == 'sticker') return initialChoice;
+
+    const switchableIndex = [0, 1, 2].find(i => i != initialChoice && i != revealIndex);
+    if (strategy == 'switcher') return switchableIndex;
+
+    const shouldSwitch = Math.floor(Math.random() * 2);
+    return shouldSwitch ? switchableIndex : initialChoice;
+  }
+
+  async playTournament(strategy, count) {
+    const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
+
+    for (let i=0; i<count; i++) {
+      this.reset();
+      await this.playAGame(strategy);
+      await pause(0.5);
+    }
+  }
 }
+
+/*********************************************************************************************************/
+
+
 
 /*********************************************************************************************************/
 
 const metrics = new SceneMetrics();
 
-let soloGame, game0, game1, game2;
+let index1Shown = false;
 
-soloGame = new Game('#solo-root');
-soloGame.createScene().then(() => soloGame.manualPlay())
+const playButton = document.getElementById('play-btn');
+const play10Button = document.getElementById('play-10-btn');
+const play100Button = document.getElementById('play-100-btn');
+const play1000Button = document.getElementById('play-1000-btn');
 
-UIkit.util.on(document, 'shown', (event) => {
+async function startTournament(games, count) {
+  const pause = s => new Promise(resolve => setTimeout(resolve, s*1000));
+  const strategies = ['sticker', 'switcher', 'random'];
+
+  for (let i=0; i<3; i++) {
+    await pause(Math.random() * 0.5);
+    games[i].reset();
+    games[i].playTournament(strategies[i], count);
+  }
+}
+
+window.addEventListener('load', async (event) => {
+  const soloGame = new Game('#solo-root');
+  await soloGame.createScene();
+  playButton.addEventListener('click', () => {
+    soloGame.reset();
+    soloGame.playAGame('manual');
+  });
+});
+
+UIkit.util.on(document, 'shown', async (event) => {
   const switcher = document.querySelector('[uk-switcher]');
   if (switcher) {
     const activeIndex = UIkit.switcher(switcher).index();
-    if (activeIndex == 1 && !game0) {
-      game0 = new Game('#root_0');
-      game1 = new Game('#root_1');
-      game2 = new Game('#root_2');
+    if (activeIndex == 1) {
+      if (!index1Shown) {
+        index1Shown = true;
+        const game0 = new Game('#root_0');
+        const game1 = new Game('#root_1');
+        const game2 = new Game('#root_2');
+        const games = [ game0, game1, game2 ];
+        await Promise.all(games.map(game => game.createScene()));
 
-      [game0, game1, game2].forEach(game => game.createScene());
+        play10Button.addEventListener('click', () => startTournament(games, 10));
+        play100Button.addEventListener('click', () => startTournament(games, 100));
+        play1000Button.addEventListener('click', () => startTournament(games, 1000));
+      }
     }
   }
 });
