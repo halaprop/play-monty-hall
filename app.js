@@ -82,7 +82,7 @@ class Game {
   }
 
   // strategy is 'manual' 'switcher', 'sticker', 'random'
-  async playAGame(strategy='manual') {
+  async play(strategy='manual') {
     const pause = s => new Promise(resolve => setTimeout(resolve, strategy=='manual' ? s*1000 : 0));
 
     const prizeDoorIndex = Math.floor(Math.random() * 3);
@@ -138,6 +138,19 @@ class Game {
     const shouldSwitch = Math.floor(Math.random() * 2);
     return shouldSwitch ? switchableIndex : initialChoice;
   }
+
+  speedPlay(strategy) {
+    const prizeDoorIndex = Math.floor(Math.random() * 3);
+    const initialChoice = 0;
+    const revealIndex = (prizeDoorIndex == 1) ? 2 : 1;
+
+    let finalChoice = initialChoice;
+    if ((strategy == 'switcher') || (strategy == 'random' && Math.floor(Math.random() * 2) == 0)) {
+      finalChoice = (revealIndex == 1) ? 2 : 1;
+    }
+    const contestentWon = finalChoice == prizeDoorIndex;
+    return contestentWon;
+  }
 }
 
 /*********************************************************************************************************/
@@ -168,15 +181,17 @@ class Tournament {
     this.charts.forEach(chart => chart.reset());
   }
 
-  async start(count) {
+  async start(count, speedGames=false) {
     this.reset();
     for (let gameIndex=0; gameIndex<Tournament.strategies().length; gameIndex++) {
-      this.playNGames(gameIndex, count);
+      this.playNGames(gameIndex, count, speedGames);
     }
   }
 
-  async playNGames(gameIndex, count) {
-    await this.pause(Math.random() * 0.5);
+  async playNGames(gameIndex, count, speedGames) {
+    const phasePause = speedGames ? 0 : 0.5;
+    const loopPause = speedGames ? 0.001 : 0.5;
+    await this.pause(Math.random() * phasePause);
 
     const game = this.games[gameIndex];
     const strategy = Tournament.strategies()[gameIndex];
@@ -187,11 +202,11 @@ class Tournament {
 
     for (let i=0; i<count; i++) {
       game.reset();
-      const win = await game.playAGame(strategy);
+      const win = speedGames ? game.speedPlay(strategy) : await game.play(strategy);
       if (win) winCount++;
       label.innerText = `(${winCount} / ${i + 1})`;
       chart.setValue(winCount / (i+1));
-      await this.pause(0.5);
+      await this.pause(loopPause);
     }
   }
 }
@@ -202,6 +217,7 @@ const playButton = document.getElementById('play-btn');
 const play10Button = document.getElementById('play-10-btn');
 const play100Button = document.getElementById('play-100-btn');
 const play1000Button = document.getElementById('play-1000-btn');
+const playSpeed1kButton = document.getElementById('play-speed-1000-btn');
 
 let tournament;
 
@@ -212,7 +228,7 @@ window.addEventListener('load', async (event) => {
   
   playButton.addEventListener('click', async () => {
     soloGame.reset();
-    await soloGame.playAGame('manual');
+    await soloGame.play('manual');
     playButton.innerText = 'Replay';
   });
 });
@@ -228,6 +244,7 @@ UIkit.util.on(document, 'shown', async (event) => {
       play10Button.addEventListener('click', () => tournament.start(10));
       play100Button.addEventListener('click', () => tournament.start(100));
       play1000Button.addEventListener('click', () => tournament.start(1000));
+      playSpeed1kButton.addEventListener('click', () => tournament.start(1000, true));
     }
   }
 });
